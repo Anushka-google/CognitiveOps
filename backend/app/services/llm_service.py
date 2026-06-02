@@ -34,3 +34,12 @@ Answer the question using only the provided context.
     response = model.generate_content(prompt)
 
     return response.text
+
+def generate_text(
+    prompt: str
+):
+    response = model.generate_content(
+        prompt
+    )
+
+    return response.text
