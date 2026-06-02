@@ -1,6 +1,5 @@
 from pydantic import BaseModel
 
-
 class WorkflowRecord(BaseModel):
     ticket_id: str
     assignee: str

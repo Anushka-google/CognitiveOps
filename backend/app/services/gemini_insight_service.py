@@ -24,8 +24,8 @@ class GeminiInsightService:
         analysis = self._parse_response(response_text)
 
         # Update insight with generated values
+        insight.root_cause = analysis.get("root_cause", "")
         insight.impact = analysis.get("impact", "")
-        insight.recommendation = analysis.get("recommendation", "")
 
         return insight
 
@@ -85,14 +85,14 @@ Respond ONLY with valid JSON in this exact format, no additional text:
             else:
                 # Fallback if JSON parsing fails
                 return {
-                    "impact": response_text,
-                    "recommendation": "Please review the issue manually."
+                    "root_cause": "Unable to determine root cause",
+                    "impact": response_text
                 }
         except json.JSONDecodeError:
             return {
-                "impact": response_text,
-                "recommendation": "Please review the issue manually."
-            }
+                "root_cause": "Unable to determine root cause",
+                "impact": response_text
+                    }
 
 
 def generate_insight_analysis(insight: Insight) -> Insight:
