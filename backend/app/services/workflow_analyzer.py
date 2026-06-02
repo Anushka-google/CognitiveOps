@@ -2,6 +2,9 @@ from collections import defaultdict
 
 from app.models.insight import Insight
 from app.services.recommendation_service import RecommendationService
+from app.services.gemini_insight_service import (
+    GeminiInsightService
+)
 
 
 class WorkflowAnalyzer:
@@ -120,21 +123,28 @@ class WorkflowAnalyzer:
             RecommendationService()
         )
 
+        gemini_service = (
+            GeminiInsightService()
+        )
+
         for insight in insights:
 
-            recommendation = (
-                recommendation_service
-                .generate_recommendation(
-                    insight
+            try:
+                insight = gemini_service.generate_insight_analysis(insight)
+            except Exception:
+                recommendation = (
+                    recommendation_service
+                    .generate_recommendation(
+                        insight
+                    )
                 )
-            )
 
-            insight.impact = (
-                recommendation["impact"]
-            )
+                insight.impact = (
+                    recommendation["impact"]
+                )
 
-            insight.recommendation = (
-                recommendation["recommendation"]
-            )
+                insight.recommendation = (
+                    recommendation["recommendation"]
+                )
 
         return insights
