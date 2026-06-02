@@ -1,4 +1,4 @@
-def chunk_text(
+def create_chunks(
     text: str,
     chunk_size: int = 500,
     overlap: int = 100
