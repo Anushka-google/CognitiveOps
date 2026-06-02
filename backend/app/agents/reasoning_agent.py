@@ -5,6 +5,7 @@ from app.services.gemini_insight_service import (
 
 
 def reasoning_agent(state: AgentState):
+    print("Running Reasoning Agent")
 
     gemini_service = GeminiInsightService()
 

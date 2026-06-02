@@ -3,6 +3,7 @@ from app.services.workflow_analyzer import WorkflowAnalyzer
 
 
 def pattern_agent(state: AgentState):
+    print("Running Pattern Agent")
 
     analyzer = WorkflowAnalyzer()
 
@@ -25,6 +26,7 @@ def pattern_agent(state: AgentState):
             state["workflows"]
         )
     )
+
 
     return {
     "insights": insights
