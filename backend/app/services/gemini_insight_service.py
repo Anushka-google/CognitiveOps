@@ -24,9 +24,14 @@ class GeminiInsightService:
         analysis = self._parse_response(response_text)
 
         # Update insight with generated values
-        insight.root_cause = analysis.get("root_cause", "")
-        insight.impact = analysis.get("impact", "")
-
+        insight.impact = analysis.get(
+            "impact",
+            "Unable to determine impact"
+            )
+        insight.recommendation = analysis.get(
+            "recommendation",
+            "Unable to determine recommendation"
+        )
         return insight
 
     def _build_prompt(self, insight: Insight) -> str:
@@ -90,8 +95,9 @@ Respond ONLY with valid JSON in this exact format, no additional text:
                 }
         except json.JSONDecodeError:
             return {
-                "root_cause": "Unable to determine root cause",
-                "impact": response_text
+                
+                "impact": response_text,
+                "recommendation":"Please review manually."
                     }
 
 

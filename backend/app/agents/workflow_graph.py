@@ -9,6 +9,10 @@ from app.agents.workflow_agent import (
     workflow_agent
 )
 
+from app.agents.recommendation_agent import(
+    recommendation_agent
+)
+
 from app.agents.state import AgentState
 
 
@@ -34,6 +38,10 @@ graph_builder.add_node(
     "workflow_agent",
      workflow_agent
 )
+graph_builder.add_node(
+    "recommendation_agent",
+    recommendation_agent
+)
 graph_builder.add_edge(
     START,
     "pattern_agent",
@@ -57,7 +65,13 @@ graph_builder.add_edge(
 )
 
 graph_builder.add_edge(
-    "reasoning_agent", END
+    "reasoning_agent",
+    "recommendation_agent"
+)
+
+graph_builder.add_edge(
+    "recommendation_agent",
+    END
 )
 
 workflow_graph = (
