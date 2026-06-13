@@ -1,0 +1,23 @@
+.bottleneck-card {
+  background: #1e293b;
+
+  border: 1px solid #334155;
+
+  border-radius: 16px;
+
+  padding: 24px;
+
+  margin: 30px 0;
+
+  text-align: center;
+
+  transition: 0.3s;
+}
+
+.bottleneck-card:hover {
+  transform: translateY(-4px);
+}
+
+.bottleneck-card h2 {
+  color: #60a5fa;
+}

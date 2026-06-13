@@ -19,27 +19,37 @@ from app.services.workflow_graph_service import (
     WorkflowGraphService
 )
 
+from app.services.jira_service import (
+    JiraService
+)
+
 router = APIRouter()
 
+
+
+@router.get(
+    "/jira/test"
+)
+def test_jira():
+
+    service = JiraService()
+
+    tickets = (
+        service.get_tickets()
+    )
+
+    return tickets[:5]
 
 @router.post("/workflow/analyze")
 def analyze_workflow():
 
-    workflows = [
-        WorkflowRecord(
-            ticket_id="T1",
-            assignee="John",
-            status="Blocked",
-            days_waiting=5
-        ),
-        WorkflowRecord(
-            ticket_id="T1",
-            assignee="Mike",
-            status="Blocked",
-            days_waiting=5
-        )
-    ]
+    jira_service = (
+        JiraService()
+    )
 
+    workflows = (
+    jira_service.get_workflow_records()
+)
     service = (
         WorkflowGraphService()
     )
@@ -49,3 +59,5 @@ def analyze_workflow():
     )
 
     return result
+
+    

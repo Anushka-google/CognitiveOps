@@ -11,3 +11,8 @@ node_modules/
 
 # Chroma
 chroma_db/
+
+uploads/
+sample_data/
+sample.txt
+test_*.py

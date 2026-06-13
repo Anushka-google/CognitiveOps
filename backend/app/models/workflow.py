@@ -6,3 +6,4 @@ class WorkflowRecord(BaseModel):
     assignee: str
     status: str
     days_waiting: int
+    

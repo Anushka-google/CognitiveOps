@@ -1,0 +1,54 @@
+.insight-card {
+  background: #1e293b;
+
+  border: 1px solid #334155;
+
+  border-radius: 16px;
+
+  padding: 24px;
+
+  margin-bottom: 20px;
+
+  transition: all 0.3s ease;
+}
+
+.insight-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+}
+
+.insight-card h3 {
+  margin-bottom: 15px;
+}
+
+.insight-card p {
+  margin-top: 10px;
+  line-height: 1.6;
+}
+
+.severity-badge {
+  display: inline-block;
+
+  padding: 8px 14px;
+
+  border-radius: 999px;
+
+  font-weight: bold;
+
+  font-size: 0.9rem;
+}
+
+.severity-high {
+  background: #ef4444;
+  color: white;
+}
+
+.severity-medium {
+  background: #f59e0b;
+  color: white;
+}
+
+.severity-low {
+  background: #22c55e;
+  color: white;
+}

@@ -1,0 +1,61 @@
+.metric-card {
+  background:
+    rgba(30, 41, 59, 0.7);
+
+  backdrop-filter: blur(12px);
+
+  border: 1px solid #334155;
+
+  border-radius: 18px;
+
+  padding: 24px;
+
+  text-align: center;
+
+  transition: 0.3s ease;
+}
+
+.metric-card:hover {
+  transform: translateY(-6px);
+
+  box-shadow:
+    0 10px 30px
+    rgba(59,130,246,0.2);
+}
+
+.metric-card h2 {
+  font-size: 1.2rem;
+  margin-bottom: 12px;
+}
+
+.metric-card p {
+  font-size: 2rem;
+  font-weight: bold;
+}
+
+.health-poor {
+  border: 2px solid #ef4444;
+}
+
+.health-good {
+  border: 2px solid #22c55e;
+}
+
+.metric-card h2 {
+  font-size: 1.1rem;
+  color: #cbd5e1;
+}
+
+.metric-card p {
+  font-size: 2rem;
+  font-weight: bold;
+  margin-top: 12px;
+}
+.table-container {
+  transition: 0.3s ease;
+}
+
+.table-container:hover {
+  transform: translateY(-4px);
+}
+
