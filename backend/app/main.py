@@ -70,3 +70,9 @@ def root():
         "message":
         "CognitiveOps Backend Running"
     }
+
+@app.get("/debug")
+def debug():
+    return {
+        "message": "new code running"
+    }
