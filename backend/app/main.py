@@ -35,7 +35,7 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:5173",
-        "http://cognitive-ops.versel.app",
+        "https://cognitive-ops.versel.app",
     ],
     allow_credentials=True,
     allow_methods=["*"],
