@@ -1,7 +1,11 @@
-export async function getRiskScores() {
+const API_URL = import.meta.env.VITE_API_URL;
 
+export async function getWorkflowAnalysis() {
   const response = await fetch(
-    "http://127.0.0.1:8000/api/risk"
+    `${API_URL}/api/workflow/analyze`,
+    {
+      method: "POST",
+    }
   );
 
   return response.json();
