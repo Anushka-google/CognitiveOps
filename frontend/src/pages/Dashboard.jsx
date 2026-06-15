@@ -31,6 +31,9 @@ function Dashboard() {
   const [riskData, setRiskData] = useState(null);
   useEffect(() => {
     async function loadData() {
+
+      console.log("API_URL =", import.meta.env.VITE_API_URL);
+      
       try {
         const result = await getWorkflowAnalysis();
         setData(result);
