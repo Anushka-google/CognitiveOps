@@ -1,25 +1,42 @@
-import requests
+from datetime import datetime, timezone
 
-from app.services.workflow_mapper import map_jira_to_workflow
+from app.models.workflow import WorkflowRecord
 
 
-class JiraService:
+def map_jira_to_workflow(ticket):
 
-    def get_tickets(self):
+    fields = ticket.get("fields", {})
 
-        response = requests.get(
-            "https://jsonplaceholder.typicode.com/posts"
+    assignee = fields.get("assignee")
+
+    assignee_name = (
+        assignee.get("displayName")
+        if assignee
+        else "Unassigned"
+    )
+
+    status = (
+        fields.get("status", {})
+        .get("name", "Unknown")
+    )
+
+    created = fields.get("created")
+
+    days_waiting = 0
+
+    if created:
+        created_dt = datetime.fromisoformat(
+            created.replace("Z", "+00:00")
         )
 
-        return response.json()
-    
-    def get_workflow_records(self):
+        days_waiting = (
+            datetime.now(timezone.utc)
+            - created_dt
+        ).days
 
-        tickets = self.get_tickets()
-
-        workflows = [
-            map_jira_to_workflow(ticket)
-            for ticket in tickets[:2]
-        ]
-
-        return workflows
+    return WorkflowRecord(
+        ticket_id=ticket["key"],
+        assignee=assignee_name,
+        status=status,
+        days_waiting=days_waiting
+    )
