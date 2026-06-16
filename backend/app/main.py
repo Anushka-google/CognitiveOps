@@ -1,3 +1,4 @@
+from backend.app.agents import router
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
@@ -76,3 +77,4 @@ def debug():
     return {
         "message": "new code running"
     }
+

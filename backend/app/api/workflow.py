@@ -60,4 +60,17 @@ def analyze_workflow():
 
     return result
 
+@router.get("/jira/debug")
+def jira_debug():
+    import os
+
+    return {
+        "base_url": os.getenv("JIRA_BASE_URL"),
+        "email": os.getenv("JIRA_EMAIL"),
+        "project": os.getenv("JIRA_PROJECT_KEY"),
+        "token_exists": bool(
+            os.getenv("JIRA_API_TOKEN")
+        )
+    }
+
     
