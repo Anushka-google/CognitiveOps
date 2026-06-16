@@ -1,42 +1,81 @@
-from datetime import datetime, timezone
+import os
+import requests
 
-from app.models.workflow import WorkflowRecord
+from dotenv import load_dotenv
+
+from app.services.workflow_mapper import (
+    map_jira_to_workflow
+)
+
+load_dotenv()
 
 
-def map_jira_to_workflow(ticket):
+class JiraService:
 
-    fields = ticket.get("fields", {})
+    def __init__(self):
 
-    assignee = fields.get("assignee")
-
-    assignee_name = (
-        assignee.get("displayName")
-        if assignee
-        else "Unassigned"
-    )
-
-    status = (
-        fields.get("status", {})
-        .get("name", "Unknown")
-    )
-
-    created = fields.get("created")
-
-    days_waiting = 0
-
-    if created:
-        created_dt = datetime.fromisoformat(
-            created.replace("Z", "+00:00")
+        self.base_url = os.getenv(
+            "JIRA_BASE_URL"
         )
 
-        days_waiting = (
-            datetime.now(timezone.utc)
-            - created_dt
-        ).days
+        self.email = os.getenv(
+            "JIRA_EMAIL"
+        )
 
-    return WorkflowRecord(
-        ticket_id=ticket["key"],
-        assignee=assignee_name,
-        status=status,
-        days_waiting=days_waiting
-    )
+        self.api_token = os.getenv(
+            "JIRA_API_TOKEN"
+        )
+
+        self.project_key = os.getenv(
+            "JIRA_PROJECT_KEY"
+        )
+
+    def get_tickets(self):
+
+        url = (
+            f"{self.base_url}"
+            f"/rest/api/3/search"
+        )
+
+        params = {
+            "jql":
+                f"project={self.project_key}",
+            "maxResults": 100
+        }
+
+        response = requests.get(
+            url,
+            params=params,
+            auth=(
+                self.email,
+                self.api_token
+            ),
+            headers={
+                "Accept":
+                "application/json"
+            }
+        )
+
+        response.raise_for_status()
+
+        data = response.json()
+
+        return data.get(
+            "issues",
+            []
+        )
+
+    def get_workflow_records(self):
+
+        tickets = (
+            self.get_tickets()
+        )
+
+        workflows = [
+            map_jira_to_workflow(
+                ticket
+            )
+            for ticket in tickets
+        ]
+
+        return workflows
