@@ -30,14 +30,13 @@ class JiraService:
         url = (
             f"{self.base_url}"
             f"/rest/api/3/search/jql"
-        )
+    )
 
         params = {
-            "jql":
-                f"project={self.project_key}",
+            "jql": f"project={self.project_key}",
             "maxResults": 100,
             "fields": "*all"
-        }
+    }
 
         response = requests.get(
             url,
@@ -45,28 +44,18 @@ class JiraService:
             auth=(
                 self.email,
                 self.api_token
-            ),
+        ),
             headers={
-                "Accept":
-                    "application/json"
-            }
-        )
-
-        print("STATUS:",
-              response.status_code)
-
-        print("BODY:",
-              response.text)
+                "Accept": "application/json"
+        }
+    )
 
         data = response.json()
 
-        print("TYPE:",
-              type(data))
-
-        print("DATA:",
-              data)
-
-        return data
+        return data.get(
+            "issues",
+            []
+        )
 
     def get_workflow_records(self):
 
