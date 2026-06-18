@@ -90,7 +90,7 @@ def test_jira():
     try:
         service = JiraService()
         tickets = service.get_tickets()
-        return tickets[:5]
+        return tickets
 
     except Exception as e:
         return {
