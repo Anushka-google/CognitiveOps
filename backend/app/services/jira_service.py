@@ -2,6 +2,10 @@ import os
 import requests
 from dotenv import load_dotenv
 
+from app.services.workflow_mapper import (
+    map_jira_to_workflow
+)
+
 load_dotenv()
 
 
@@ -30,13 +34,14 @@ class JiraService:
         url = (
             f"{self.base_url}"
             f"/rest/api/3/search/jql"
-    )
+        )
 
         params = {
-            "jql": f"project={self.project_key}",
+            "jql":
+                f"project={self.project_key}",
             "maxResults": 100,
             "fields": "*all"
-    }
+        }
 
         response = requests.get(
             url,
@@ -44,11 +49,14 @@ class JiraService:
             auth=(
                 self.email,
                 self.api_token
-        ),
+            ),
             headers={
-                "Accept": "application/json"
-        }
-    )
+                "Accept":
+                    "application/json"
+            }
+        )
+
+        response.raise_for_status()
 
         data = response.json()
 
@@ -61,14 +69,9 @@ class JiraService:
 
         tickets = self.get_tickets()
 
-        print(
-            "TICKETS TYPE:",
-            type(tickets)
-        )
+        workflows = [
+            map_jira_to_workflow(ticket)
+            for ticket in tickets
+        ]
 
-        print(
-            "TICKETS:",
-            tickets
-        )
-
-        return tickets
+        return workflows
