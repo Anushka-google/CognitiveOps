@@ -1,7 +1,36 @@
 from fastapi import FastAPI
+from fastapi.middleware.cors import CORSMiddleware
+
+from app.api.workflow import (
+    router as workflow_router
+)
 
 app = FastAPI()
 
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+app.include_router(
+    workflow_router,
+    prefix="/api"
+)
+
+
 @app.get("/")
 def root():
-    return {"message": "working"}
+    return {
+        "message":
+        "CognitiveOps Backend Running"
+    }
+
+
+@app.get("/debug")
+def debug():
+    return {
+        "message":
+        "new code running"
+    }
