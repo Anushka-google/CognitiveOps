@@ -1,12 +1,6 @@
 import os
-from urllib import response
 import requests
-
 from dotenv import load_dotenv
-
-from app.services.workflow_mapper import (
-    map_jira_to_workflow
-)
 
 load_dotenv()
 
@@ -54,43 +48,38 @@ class JiraService:
             ),
             headers={
                 "Accept":
-                "application/json"
+                    "application/json"
             }
         )
 
+        print("STATUS:",
+              response.status_code)
+
+        print("BODY:",
+              response.text)
+
         data = response.json()
+
+        print("TYPE:",
+              type(data))
+
+        print("DATA:",
+              data)
+
         return data
-
-        print(response.status_code)
-        print(response.text)
-
-        if response.status_code != 200:
-            return {
-            "status": response.status_code,
-            "body": response.text
-        }
-
-        data = response.json()
-
-        return data.get(
-            "issues",
-            []
-        )
 
     def get_workflow_records(self):
 
-        tickets = (
-            self.get_tickets()
+        tickets = self.get_tickets()
+
+        print(
+            "TICKETS TYPE:",
+            type(tickets)
         )
 
-        print(type(tickets))
-        print(tickets)
+        print(
+            "TICKETS:",
+            tickets
+        )
 
-        # workflows = [
-        #     map_jira_to_workflow(
-        #         ticket
-        #     )
-        #     for ticket in tickets
-        # ]
-
-        return workflows
+        return tickets
