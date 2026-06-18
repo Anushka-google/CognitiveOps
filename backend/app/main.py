@@ -31,3 +31,10 @@ def root():
     return {
         "message": "CognitiveOps Backend Running"
     }
+
+from app.api import workflow
+
+app.include_router(
+    workflow.router,
+    prefix="/api"
+)

@@ -58,6 +58,7 @@
 from fastapi import APIRouter
 from app.services.jira_service import JiraService
 import os
+from app.services.workflow_graph_service import WorkflowGraphService
 
 print("NEW DEPLOY TEST")
 
@@ -98,3 +99,20 @@ def test_jira():
         return {
             "error": str(e)
         }
+    
+@router.post("/workflow/analyze")
+def analyze_workflow():
+
+    jira_service = JiraService()
+
+    workflows = (
+        jira_service.get_workflow_records()
+    )
+
+    service = WorkflowGraphService()
+
+    result = service.analyze(
+        workflows
+    )
+
+    return result
