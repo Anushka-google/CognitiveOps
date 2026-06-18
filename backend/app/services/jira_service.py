@@ -41,7 +41,8 @@ class JiraService:
         params = {
             "jql":
                 f"project={self.project_key}",
-            "maxResults": 100
+            "maxResults": 100,
+            "fields": "*all"
         }
 
         response = requests.get(
