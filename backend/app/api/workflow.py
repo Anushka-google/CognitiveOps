@@ -54,6 +54,7 @@
 
 
 from fastapi import APIRouter
+from app.services.jira_service import JiraService
 import os
 
 router = APIRouter()
@@ -78,3 +79,11 @@ def jira_debug():
             )
         )
     }
+
+
+
+@router.get("/jira/test")
+def test_jira():
+    service = JiraService()
+    tickets = service.get_tickets()
+    return tickets[:5]
