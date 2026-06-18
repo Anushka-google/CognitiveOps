@@ -91,8 +91,8 @@ def test_jira():
 
     try:
         service = JiraService()
-        tickets = service.get_tickets()
-        return tickets
+        #tickets = service.get_tickets()
+        return service.get_workflow_records()
 
     except Exception as e:
         return {
