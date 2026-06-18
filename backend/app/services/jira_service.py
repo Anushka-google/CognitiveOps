@@ -57,6 +57,9 @@ class JiraService:
             }
         )
 
+        data = response.json()
+        return data
+
         print(response.status_code)
         print(response.text)
 
