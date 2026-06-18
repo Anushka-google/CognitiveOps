@@ -60,9 +60,11 @@ class JiraService:
         print(response.status_code)
         print(response.text)
 
-        response.raise_for_status()
-
-        response.raise_for_status()
+        if response.status_code != 200:
+            return {
+            "status": response.status_code,
+            "body": response.text
+        }
 
         data = response.json()
 

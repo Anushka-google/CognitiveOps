@@ -86,6 +86,13 @@ def jira_debug():
 
 @router.get("/jira/test")
 def test_jira():
-    service = JiraService()
-    tickets = service.get_tickets()
-    return tickets[:5]
+
+    try:
+        service = JiraService()
+        tickets = service.get_tickets()
+        return tickets[:5]
+
+    except Exception as e:
+        return {
+            "error": str(e)
+        }
