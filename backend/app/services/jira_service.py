@@ -83,6 +83,9 @@ class JiraService:
             self.get_tickets()
         )
 
+        print(type(tickets))
+        print(tickets)
+
         workflows = [
             map_jira_to_workflow(
                 ticket
