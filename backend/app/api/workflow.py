@@ -57,6 +57,8 @@ from fastapi import APIRouter
 from app.services.jira_service import JiraService
 import os
 
+print("NEW DEPLOY TEST")
+
 router = APIRouter()
 
 
