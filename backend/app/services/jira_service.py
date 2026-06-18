@@ -86,11 +86,11 @@ class JiraService:
         print(type(tickets))
         print(tickets)
 
-        workflows = [
-            map_jira_to_workflow(
-                ticket
-            )
-            for ticket in tickets
-        ]
+        # workflows = [
+        #     map_jira_to_workflow(
+        #         ticket
+        #     )
+        #     for ticket in tickets
+        # ]
 
         return workflows
