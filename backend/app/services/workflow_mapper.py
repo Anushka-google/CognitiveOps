@@ -6,23 +6,32 @@ def map_jira_to_workflow(ticket):
 
     fields = ticket["fields"]
 
-    created_str = fields["created"]
-
-    created = datetime.fromisoformat(
-        created_str.replace(
-            "Z",
-            "+00:00"
-        )
+    created_str = fields.get(
+        "created"
     )
 
-    days_waiting = (
-        datetime.now(
-            created.tzinfo
-        ) - created
-    ).days
+    days_waiting = 0
+
+    if created_str:
+
+        created = datetime.fromisoformat(
+            created_str.replace(
+                "Z",
+                "+00:00"
+            )
+        )
+
+        days_waiting = (
+            datetime.now(
+                created.tzinfo
+            ) - created
+        ).days
 
     return WorkflowRecord(
-        ticket_id=ticket["key"],
+        ticket_id=ticket.get(
+            "key",
+            "Unknown"
+        ),
 
         title=fields.get(
             "summary",
