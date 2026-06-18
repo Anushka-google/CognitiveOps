@@ -1,4 +1,5 @@
 import os
+from urllib import response
 import requests
 
 from dotenv import load_dotenv
@@ -55,6 +56,11 @@ class JiraService:
                 "application/json"
             }
         )
+
+        print(response.status_code)
+        print(response.text)
+
+        response.raise_for_status()
 
         response.raise_for_status()
 
