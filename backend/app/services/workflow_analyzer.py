@@ -9,26 +9,38 @@ from app.services.gemini_insight_service import (
 
 class WorkflowAnalyzer:
 
-    DELAY_THRESHOLD = 3
+    DELAY_THRESHOLD = 1
 
     def detect_delays(self, workflows):
 
         insights = []
-
         processed_tickets = set()
 
         for workflow in workflows:
+
+            print(
+                workflow.ticket_id,
+                workflow.days_waiting,
+                workflow.status
+            )
 
             if workflow.ticket_id in processed_tickets:
                 continue
 
             if workflow.days_waiting > self.DELAY_THRESHOLD:
 
+                print(
+                    f"DELAY DETECTED: "
+                    f"{workflow.ticket_id}"
+                )
+
                 insights.append(
                     Insight(
                         issue="Approval Delay",
                         evidence=[
-                            f"Ticket {workflow.ticket_id} waiting for {workflow.days_waiting} days"
+                            f"Ticket {workflow.ticket_id} "
+                            f"waiting for "
+                            f"{workflow.days_waiting} days"
                         ],
                         severity="High"
                     )
@@ -43,7 +55,6 @@ class WorkflowAnalyzer:
     def detect_blockers(self, workflows):
 
         insights = []
-
         processed_tickets = set()
 
         for workflow in workflows:
@@ -72,11 +83,9 @@ class WorkflowAnalyzer:
     def detect_reassignments(self, workflows):
 
         insights = []
-
         ticket_assignees = defaultdict(list)
 
         for workflow in workflows:
-
             ticket_assignees[
                 workflow.ticket_id
             ].append(
@@ -85,9 +94,9 @@ class WorkflowAnalyzer:
 
         for ticket_id, assignees in ticket_assignees.items():
 
-            reassignment_count = len(
-                set(assignees)
-            ) - 1
+            reassignment_count = (
+                len(set(assignees)) - 1
+            )
 
             if reassignment_count > 2:
 
@@ -95,7 +104,9 @@ class WorkflowAnalyzer:
                     Insight(
                         issue="Ownership Instability",
                         evidence=[
-                            f"Ticket {ticket_id} reassigned {reassignment_count} times"
+                            f"Ticket {ticket_id} "
+                            f"reassigned "
+                            f"{reassignment_count} times"
                         ],
                         severity="High"
                     )
@@ -130,8 +141,12 @@ class WorkflowAnalyzer:
         for insight in insights:
 
             try:
-                insight = gemini_service.generate_insight_analysis(insight)
+                gemini_service.generate_insight_analysis(
+                    insight
+                )
+
             except Exception:
+
                 recommendation = (
                     recommendation_service
                     .generate_recommendation(
@@ -144,7 +159,9 @@ class WorkflowAnalyzer:
                 )
 
                 insight.recommendation = (
-                    recommendation["recommendation"]
+                    recommendation[
+                        "recommendation"
+                    ]
                 )
 
         return insights
