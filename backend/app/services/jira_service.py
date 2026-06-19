@@ -57,8 +57,11 @@ class JiraService:
         )
 
         response.raise_for_status()
-
+    
         data = response.json()
+        print("PROJECT:", self.project_key)
+        print("TOTAL ISSUES:", len(data.get("issues", [])))
+        print(data)
 
         return data.get(
             "issues",
@@ -68,6 +71,7 @@ class JiraService:
     def get_workflow_records(self):
 
         tickets = self.get_tickets()
+        
 
         workflows = [
             map_jira_to_workflow(ticket)

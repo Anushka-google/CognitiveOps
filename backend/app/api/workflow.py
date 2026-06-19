@@ -116,3 +116,9 @@ def analyze_workflow():
     )
 
     return result
+
+
+@router.get("/jira/test")
+def test_jira():
+    service = JiraService()
+    return service.get_workflow_records()
