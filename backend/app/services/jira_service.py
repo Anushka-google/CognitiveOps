@@ -1,4 +1,5 @@
 import os
+from urllib import response
 import requests
 from dotenv import load_dotenv
 
@@ -33,7 +34,7 @@ class JiraService:
 
         url = (
             f"{self.base_url}"
-            f"/rest/api/3/search/jql"
+            f"/rest/api/3/search"
         )
 
         params = {
@@ -55,6 +56,9 @@ class JiraService:
                     "application/json"
             }
         )
+
+        print(response.status_code)
+        print(response.text)
 
         response.raise_for_status()
     
