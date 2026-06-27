@@ -54,6 +54,13 @@ class RiskScoringService:
             ]
         )
 
+        if not results:
+            return {
+                "average_risk":0,
+                "high_risk_tickets":0,
+                "tickets":[]
+            }
+
         average_risk = round(
             sum(
                 r["risk_score"]
