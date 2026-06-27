@@ -9,7 +9,7 @@ from app.services.gemini_insight_service import (
 
 class WorkflowAnalyzer:
 
-    DELAY_THRESHOLD = 1
+    DELAY_THRESHOLD = 3
 
     def detect_delays(self, workflows):
 
@@ -141,11 +141,17 @@ class WorkflowAnalyzer:
         for insight in insights:
 
             try:
+                insights=(
                 gemini_service.generate_insight_analysis(
                     insight
                 )
+                )
 
             except Exception:
+
+                print(
+                    f"Gemini Error: {e}"
+                )
 
                 recommendation = (
                     recommendation_service

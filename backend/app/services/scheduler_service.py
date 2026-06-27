@@ -94,9 +94,9 @@ from datetime import (
 scheduler.add_job(
     run_analysis,
     "interval",
-    minutes=5,
+    minutes=1,
     next_run_time=
         datetime.now()
-        + timedelta(minutes=1)
+        + timedelta(seconds=10)
 )
 

@@ -1,5 +1,12 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from app.services.scheduler_service import (
+    scheduler
+)
+from app.api.risk import (
+    router as risk_router
+)
+
 
 print("MAIN FILE LOADED")
 
@@ -10,6 +17,13 @@ from app.api.workflow import (
 print("WORKFLOW IMPORTED")
 
 app = FastAPI()
+
+@app.on_event("startup")
+def start_scheduler():
+    scheduler.start()
+    print(
+        "Scheduler Started"
+    )
 
 app.add_middleware(
     CORSMiddleware,
@@ -23,6 +37,11 @@ app.include_router(
     prefix="/api"
 )
 
+app.include_router(
+    risk_router,
+    prefix="/api"
+)
+
 print("ROUTER INCLUDED")
 
 
@@ -32,9 +51,3 @@ def root():
         "message": "CognitiveOps Backend Running"
     }
 
-from app.api import workflow
-
-app.include_router(
-    workflow.router,
-    prefix="/api"
-)
