@@ -34,7 +34,7 @@ class JiraService:
 
         url = (
             f"{self.base_url}"
-            f"/rest/api/3/search"
+            f"/rest/api/3/search/sql"
         )
 
         params = {
