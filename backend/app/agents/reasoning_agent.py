@@ -2,6 +2,9 @@ from app.agents.state import AgentState
 from app.services.gemini_insight_service import (
     GeminiInsightService
 )
+from app.services.recommendation_service import (
+    RecommendationService
+)
 
 
 def reasoning_agent(state: AgentState):
@@ -11,6 +14,7 @@ def reasoning_agent(state: AgentState):
     print("==================================")
 
     gemini_service = GeminiInsightService()
+    recommendation_service = RecommendationService()
 
     updated_insights = []
 
@@ -26,16 +30,20 @@ def reasoning_agent(state: AgentState):
 
         except Exception as e:
 
-            print(
-                f"Gemini Error: {e}"
+            print(f"Gemini Error : {e}")
+
+            recommendation = (
+                recommendation_service.generate_recommendation(
+                    insight
+                )
             )
 
             insight.impact = (
-                "Impact unavailable due to API issue."
+                recommendation["impact"]
             )
 
             insight.recommendation = (
-                "Retry analysis later."
+                recommendation["recommendation"]
             )
 
             updated_insight = insight

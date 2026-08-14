@@ -11,10 +11,13 @@ class WorkflowAnalyzer:
 
     DELAY_THRESHOLD = 3
 
+    # ----------------------------------------
+    # Detect Approval Delays
+    # ----------------------------------------
+
     def detect_delays(self, workflows):
 
-        insights = []
-        processed_tickets = set()
+        delayed_workflows = []
 
         for workflow in workflows:
 
@@ -24,73 +27,102 @@ class WorkflowAnalyzer:
                 workflow.status
             )
 
-            if workflow.ticket_id in processed_tickets:
-                continue
-
             if workflow.days_waiting > self.DELAY_THRESHOLD:
 
-                print(
-                    f"DELAY DETECTED: "
-                    f"{workflow.ticket_id}"
+                delayed_workflows.append(
+                    workflow
                 )
 
-                insights.append(
-                    Insight(
-                        issue="Approval Delay",
-                        evidence=[
-                            f"Ticket {workflow.ticket_id} "
-                            f"waiting for "
-                            f"{workflow.days_waiting} days"
-                        ],
-                        severity="High"
-                    )
-                )
+        if len(delayed_workflows) == 0:
+            return []
 
-                processed_tickets.add(
-                    workflow.ticket_id
-                )
+        evidence = []
 
-        return insights
+        for workflow in delayed_workflows:
+
+            evidence.append(
+
+                f"{workflow.ticket_id} waiting "
+                f"{workflow.days_waiting} days"
+
+            )
+
+        return [
+
+            Insight(
+
+                issue="Approval Delay",
+
+                evidence=evidence,
+
+                severity="High"
+
+            )
+
+        ]
+
+    # ----------------------------------------
+    # Detect Blockers
+    # ----------------------------------------
 
     def detect_blockers(self, workflows):
 
-        insights = []
-        processed_tickets = set()
+        blocked = []
 
         for workflow in workflows:
 
-            if workflow.ticket_id in processed_tickets:
-                continue
-
             if workflow.status == "Blocked":
 
-                insights.append(
-                    Insight(
-                        issue="Workflow Blocker",
-                        evidence=[
-                            f"Ticket {workflow.ticket_id} is blocked"
-                        ],
-                        severity="High"
-                    )
+                blocked.append(
+                    workflow
                 )
 
-                processed_tickets.add(
-                    workflow.ticket_id
-                )
+        if len(blocked) == 0:
+            return []
 
-        return insights
+        evidence = []
+
+        for workflow in blocked:
+
+            evidence.append(
+
+                f"{workflow.ticket_id} is Blocked"
+
+            )
+
+        return [
+
+            Insight(
+
+                issue="Workflow Blocker",
+
+                evidence=evidence,
+
+                severity="High"
+
+            )
+
+        ]
+
+    # ----------------------------------------
+    # Detect Reassignments
+    # ----------------------------------------
 
     def detect_reassignments(self, workflows):
 
         insights = []
+
         ticket_assignees = defaultdict(list)
 
         for workflow in workflows:
+
             ticket_assignees[
                 workflow.ticket_id
             ].append(
                 workflow.assignee
             )
+
+        evidence = []
 
         for ticket_id, assignees in ticket_assignees.items():
 
@@ -100,34 +132,55 @@ class WorkflowAnalyzer:
 
             if reassignment_count > 2:
 
-                insights.append(
-                    Insight(
-                        issue="Ownership Instability",
-                        evidence=[
-                            f"Ticket {ticket_id} "
-                            f"reassigned "
-                            f"{reassignment_count} times"
-                        ],
-                        severity="High"
-                    )
+                evidence.append(
+
+                    f"{ticket_id} reassigned "
+                    f"{reassignment_count} times"
+
                 )
 
+        if len(evidence) > 0:
+
+            insights.append(
+
+                Insight(
+
+                    issue="Ownership Instability",
+
+                    evidence=evidence,
+
+                    severity="High"
+
+                )
+
+            )
+
         return insights
+
+    # ----------------------------------------
+    # Analyze Workflow
+    # ----------------------------------------
 
     def analyze_workflow(self, workflows):
 
         insights = []
 
         insights.extend(
-            self.detect_delays(workflows)
+            self.detect_delays(
+                workflows
+            )
         )
 
         insights.extend(
-            self.detect_blockers(workflows)
+            self.detect_blockers(
+                workflows
+            )
         )
 
         insights.extend(
-            self.detect_reassignments(workflows)
+            self.detect_reassignments(
+                workflows
+            )
         )
 
         recommendation_service = (
@@ -138,26 +191,36 @@ class WorkflowAnalyzer:
             GeminiInsightService()
         )
 
+        updated_insights = []
+
         for insight in insights:
 
             try:
-                insights=(
-                gemini_service.generate_insight_analysis(
-                    insight
-                )
+
+                updated = (
+
+                    gemini_service.generate_insight_analysis(
+                        insight
+                    )
+
                 )
 
-            except Exception:
+                updated_insights.append(
+                    updated
+                )
+
+            except Exception as e:
 
                 print(
-                    f"Gemini Error: {e}"
+                    f"Gemini Error : {e}"
                 )
 
                 recommendation = (
-                    recommendation_service
-                    .generate_recommendation(
+
+                    recommendation_service.generate_recommendation(
                         insight
                     )
+
                 )
 
                 insight.impact = (
@@ -165,9 +228,11 @@ class WorkflowAnalyzer:
                 )
 
                 insight.recommendation = (
-                    recommendation[
-                        "recommendation"
-                    ]
+                    recommendation["recommendation"]
                 )
 
-        return insights
+                updated_insights.append(
+                    insight
+                )
+
+        return updated_insights

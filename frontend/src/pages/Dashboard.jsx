@@ -1,162 +1,731 @@
 import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
+
 import { getWorkflowAnalysis } from "../services/workflowApi";
+import { getRiskScores } from "../services/riskApi";
+
+import Sidebar from "../components/Sidebar";
 import MetricCard from "../components/MetricCard";
 import InsightsTable from "../components/InsightsTable";
 import InsightCard from "../components/InsightCard";
-import "./Dashboard.css";
 import IssuesChart from "../components/IssuesChart";
 import WorkflowTimeline from "../components/WorkflowTimeline";
 import BottleneckCard from "../components/BottleneckCard";
 import SeverityPieChart from "../components/SeverityPieChart";
-import { getRiskScores }
-from "../services/riskApi";
-import RiskCards
-from "../components/RiskCards";
-import RiskPieChart
-from "../components/RiskPieChart";
-import RiskTable
-from "../components/RiskTable";
-import ExecutiveSummary
-from "../components/ExecutiveSummary";
+import RiskCards from "../components/RiskCards";
+import RiskPieChart from "../components/RiskPieChart";
+import RiskTable from "../components/RiskTable";
+import ExecutiveSummary from "../components/ExecutiveSummary";
 
-
-
-
-
-
+import "./Dashboard.css";
 
 function Dashboard() {
   const [data, setData] = useState(null);
-  const [error, setError] = useState(null);
   const [riskData, setRiskData] = useState(null);
+  const [error, setError] = useState(null);
+
+  const [sidebarCollapsed, setSidebarCollapsed] =
+    useState(false);
+
   useEffect(() => {
     async function loadData() {
-
-      console.log("API_URL =", import.meta.env.VITE_API_URL);
-      
       try {
-        const result = await getWorkflowAnalysis();
-        setData(result);
-        const riskResult = await getRiskScores();
+        console.log(
+          "API_URL:",
+          import.meta.env.VITE_API_URL
+        );
+
+        const workflowResult =
+          await getWorkflowAnalysis();
+
+        console.log(
+          "Workflow Response:",
+          workflowResult
+        );
+
+        const riskResult =
+          await getRiskScores();
+
+        console.log(
+          "Risk Response:",
+          riskResult
+        );
+
+        setData(workflowResult);
         setRiskData(riskResult);
-      } catch (error) {
-        setError("Failed to load Dashboard data");
-        console.error("Error loading data:", error);
+
+      } catch (err) {
+        console.error(
+          "Dashboard loading error:",
+          err
+        );
+
+        setError(
+          "Unable to load workflow intelligence."
+        );
       }
     }
 
     loadData();
   }, []);
 
+  /* =========================
+     ERROR STATE
+  ========================= */
+
   if (error) {
-    return <h2>{error}</h2>;
+    return (
+      <div className="dashboard-state-screen">
+
+        <div className="state-card">
+
+          <div className="state-icon">
+            !
+          </div>
+
+          <h2>
+            Unable to load dashboard
+          </h2>
+
+          <p>
+            {error}
+          </p>
+
+          <button
+            onClick={() =>
+              window.location.reload()
+            }
+          >
+            Retry
+          </button>
+
+        </div>
+
+      </div>
+    );
   }
+
+  /* =========================
+     LOADING STATE
+  ========================= */
 
   if (
-  !data ||
-  !riskData
-) {
-  return (
-    <div className="loading-screen">
-      Loading Dashboard...
-    </div>
-  );
-}
+    !data ||
+    !riskData ||
+    !data.insights
+  ) {
+    return (
+      <div className="dashboard-state-screen">
 
-  return (
-    <div className="dashboard">
-      <h1>CognitiveOps Dashboard</h1>
+        <div className="dashboard-loader">
 
-      <ExecutiveSummary
-  workflowHealth={
-    data.workflow_health
-  }
-  totalIssues={
-    data.total_issues
-  }
-  highSeverity={
-    data.high_severity_issues
-  }
-  bottleneck={
-    data.insights[0].issue
-  }
-/>
+          <div className="loader-ring"></div>
 
-      <div className="metrics-container">
-        <MetricCard
-          title="Total Issues"
-          value={data.total_issues}
-        />
+          <h2>
+            Analyzing workflow intelligence
+          </h2>
 
-        <MetricCard
-          title="High Severity Issues"
-          value={data.high_severity_issues}
-        />
+          <p>
+            Processing operational data
+            and calculating risk...
+          </p>
 
-        <MetricCard
-          title="Workflow Health"
-          value={data.workflow_health}
-        />
+        </div>
+
       </div>
-        <RiskCards
-        riskData={riskData}
-        />
-      <div className="analytics-grid">
+    );
+  }
 
-  <div className="analytics-card">
-    <IssuesChart
-      insights={data.insights}
-    />
-  </div>
+  const firstInsight =
+    data.insights.length > 0
+      ? data.insights[0]
+      : null;
 
-  <div className="analytics-card">
-    <RiskPieChart
-      riskData={riskData}
-    />
-  </div>
+  return (
+    <div
+      className={
+        sidebarCollapsed
+          ? "dashboard-page sidebar-is-collapsed"
+          : "dashboard-page"
+      }
+    >
 
-</div>
+      {/* =========================
+          SIDEBAR
+      ========================= */}
 
-<div className="analytics-grid">
+      <Sidebar
+        collapsed={sidebarCollapsed}
+        setCollapsed={setSidebarCollapsed}
+      />
 
-  <div className="analytics-card">
-    <SeverityPieChart
-      insights={data.insights}
-    />
-  </div>
 
-  <div className="analytics-card">
-    <BottleneckCard
-      title="Top Bottleneck"
-      value={data.insights[0].issue}
-      severity={data.insights[0].severity}
-    />
-  </div>
+      {/* =========================
+          MAIN CONTENT
+      ========================= */}
 
-</div>
+      <main className="dashboard-main">
 
-<RiskTable
-  riskData={riskData}
-/>
 
-      <div className="insights-section">
-  <h2>Workflow Insights</h2>
+        {/* =========================
+            OVERVIEW
+        ========================= */}
 
-  {data.insights.map((insight, index) => (
-    <InsightCard
-      key={index}
-      issue={insight.issue}
-      severity={insight.severity}
-      impact={insight.impact}
-      recommendation={insight.recommendation}
-    />
-  ))}
+        <section
+          className="dashboard-header"
+          id="overview"
+        >
 
-  <InsightsTable
-    insights={data.insights}
-  />
-  <WorkflowTimeline />
-</div>
+          <div>
+
+            <div className="dashboard-eyebrow">
+              WORKFLOW INTELLIGENCE
+            </div>
+
+            <h1>
+              Operations Overview
+            </h1>
+
+            <p>
+              Monitor workflow health,
+              operational risk and
+              AI-generated insights.
+            </p>
+
+          </div>
+
+          <div className="analysis-status">
+
+            <span className="analysis-dot"></span>
+
+            <div>
+
+              <small>
+                ANALYSIS STATUS
+              </small>
+
+              <strong>
+                Live
+              </strong>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        {/* =========================
+            EXECUTIVE SUMMARY
+        ========================= */}
+
+        <section
+          className="dashboard-section"
+        >
+
+          <div className="section-label-row">
+
+            <div>
+
+              <span className="section-kicker">
+                EXECUTIVE INTELLIGENCE
+              </span>
+
+              <h2>
+                Executive Summary
+              </h2>
+
+            </div>
+
+            <span className="ai-generated">
+              AI Generated
+            </span>
+
+          </div>
+
+          <div className="executive-wrapper">
+
+            <ExecutiveSummary
+              workflowHealth={
+                data.workflow_health
+              }
+              totalIssues={
+                data.total_issues
+              }
+              highSeverity={
+                data.high_severity_issues
+              }
+              bottleneck={
+                firstInsight
+                  ? firstInsight.issue
+                  : "No bottlenecks detected"
+              }
+            />
+
+          </div>
+
+        </section>
+
+
+        {/* =========================
+            KPI METRICS
+        ========================= */}
+
+        <section
+          className="dashboard-section"
+        >
+
+          <div className="section-label-row">
+
+            <div>
+
+              <span className="section-kicker">
+                KEY METRICS
+              </span>
+
+              <h2>
+                Workflow Health
+              </h2>
+
+            </div>
+
+          </div>
+
+          <div className="dashboard-metrics">
+
+            <MetricCard
+              title="Total Issues"
+              value={
+                data.total_issues
+              }
+            />
+
+            <MetricCard
+              title="High Severity"
+              value={
+                data.high_severity_issues
+              }
+            />
+
+            <MetricCard
+              title="Workflow Health"
+              value={
+                data.workflow_health
+              }
+            />
+
+          </div>
+
+          <div className="risk-cards-wrapper">
+
+            <RiskCards
+              riskData={riskData}
+            />
+
+          </div>
+
+        </section>
+
+
+        {/* =========================
+            ANALYTICS
+        ========================= */}
+
+        <section
+          className="dashboard-section"
+          id="analytics"
+        >
+
+          <div className="section-label-row">
+
+            <div>
+
+              <span className="section-kicker">
+                ANALYTICS
+              </span>
+
+              <h2>
+                Risk & Issue Intelligence
+              </h2>
+
+            </div>
+
+          </div>
+
+          <div className="dashboard-analytics-grid">
+
+            <div className="dashboard-panel">
+
+              <div className="panel-header">
+
+                <div>
+
+                  <span>
+                    ISSUE ANALYSIS
+                  </span>
+
+                  <h3>
+                    Severity Distribution
+                  </h3>
+
+                </div>
+
+              </div>
+
+              <div className="chart-container">
+
+                <IssuesChart
+                  insights={
+                    data.insights
+                  }
+                />
+
+              </div>
+
+            </div>
+
+
+            <div className="dashboard-panel">
+
+              <div className="panel-header">
+
+                <div>
+
+                  <span>
+                    RISK ANALYSIS
+                  </span>
+
+                  <h3>
+                    Risk Distribution
+                  </h3>
+
+                </div>
+
+              </div>
+
+              <div className="chart-container">
+
+                <RiskPieChart
+                  riskData={riskData}
+                />
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          <div className="dashboard-analytics-grid second-grid">
+
+            <div className="dashboard-panel">
+
+              <div className="panel-header">
+
+                <div>
+
+                  <span>
+                    SEVERITY
+                  </span>
+
+                  <h3>
+                    Severity Breakdown
+                  </h3>
+
+                </div>
+
+              </div>
+
+              <div className="chart-container">
+
+                <SeverityPieChart
+                  insights={
+                    data.insights
+                  }
+                />
+
+              </div>
+
+            </div>
+
+
+            <div className="dashboard-panel bottleneck-panel">
+
+              <div className="panel-header">
+
+                <div>
+
+                  <span>
+                    PROCESS INTELLIGENCE
+                  </span>
+
+                  <h3>
+                    Primary Bottleneck
+                  </h3>
+
+                </div>
+
+              </div>
+
+              <div className="bottleneck-wrapper">
+
+                <BottleneckCard
+                  title="Top Bottleneck"
+                  value={
+                    firstInsight
+                      ? firstInsight.issue
+                      : "None detected"
+                  }
+                  severity={
+                    firstInsight
+                      ? firstInsight.severity
+                      : "Low"
+                  }
+                />
+
+              </div>
+
+            </div>
+
+          </div>
+
+        </section>
+
+
+        {/* =========================
+            RISK ANALYSIS
+        ========================= */}
+
+        <section
+          className="dashboard-section"
+          id="risk-analysis"
+        >
+
+          <div className="section-label-row">
+
+            <div>
+
+              <span className="section-kicker">
+                OPERATIONAL RISK
+              </span>
+
+              <h2>
+                Ticket Risk Analysis
+              </h2>
+
+              <p className="section-description">
+                Prioritized workflow tickets
+                based on calculated
+                operational risk.
+              </p>
+
+            </div>
+
+            <div className="ticket-count">
+
+              <strong>
+                {
+                  riskData.tickets
+                    ? riskData.tickets.length
+                    : 0
+                }
+              </strong>
+
+              <span>
+                Tickets analyzed
+              </span>
+
+            </div>
+
+          </div>
+
+          <div className="table-panel">
+
+            <RiskTable
+              riskData={riskData}
+            />
+
+          </div>
+
+        </section>
+
+
+        {/* =========================
+            AI INSIGHTS
+        ========================= */}
+
+        <section
+          className="dashboard-section"
+          id="ai-insights"
+        >
+
+          <div className="section-label-row">
+
+            <div>
+
+              <span className="section-kicker">
+                AI INTELLIGENCE
+              </span>
+
+              <h2>
+                Workflow Insights
+              </h2>
+
+              <p className="section-description">
+                Detected operational issues
+                with impact analysis and
+                actionable recommendations.
+              </p>
+
+            </div>
+
+            <span className="insight-counter">
+
+              {data.insights.length}
+
+              {" "}
+
+              insight
+              {
+                data.insights.length !== 1
+                  ? "s"
+                  : ""
+              }
+
+            </span>
+
+          </div>
+
+
+          <div className="insights-grid">
+
+            {
+              data.insights.length > 0
+                ? (
+                  data.insights.map(
+                    (
+                      insight,
+                      index
+                    ) => (
+
+                      <InsightCard
+                        key={index}
+                        issue={
+                          insight.issue
+                        }
+                        severity={
+                          insight.severity
+                        }
+                        impact={
+                          insight.impact
+                        }
+                        recommendation={
+                          insight.recommendation
+                        }
+                        evidence={
+                          insight.evidence
+                        }
+                      />
+
+                    )
+                  )
+                )
+                : (
+                  <div className="empty-insights">
+
+                    <span>
+                      ✓
+                    </span>
+
+                    <h3>
+                      No critical insights
+                    </h3>
+
+                    <p>
+                      No workflow bottlenecks
+                      are currently detected.
+                    </p>
+
+                  </div>
+                )
+            }
+
+          </div>
+
+
+          <div className="table-panel insights-table-panel">
+
+            <InsightsTable
+              insights={
+                data.insights
+              }
+            />
+
+          </div>
+
+        </section>
+
+
+        {/* =========================
+            WORKFLOW PIPELINE
+        ========================= */}
+
+        <section
+          className="dashboard-section"
+          id="pipeline"
+        >
+
+          <div className="section-label-row">
+
+            <div>
+
+              <span className="section-kicker">
+                ANALYSIS PIPELINE
+              </span>
+
+              <h2>
+                Intelligence Workflow
+              </h2>
+
+            </div>
+
+          </div>
+
+          <div className="timeline-panel">
+
+            <WorkflowTimeline />
+
+          </div>
+
+        </section>
+
+      </main>
+
+
+      {/* =========================
+          FOOTER
+      ========================= */}
+
+      <footer className="dashboard-footer">
+
+        <div>
+
+          <strong>
+            CognitiveOps
+          </strong>
+
+          <span>
+            AI Process Intelligence Engine
+          </span>
+
+        </div>
+
+        <span>
+          Operational Intelligence Dashboard
+        </span>
+
+      </footer>
+
     </div>
   );
 }

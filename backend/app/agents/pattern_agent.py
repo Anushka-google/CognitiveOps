@@ -3,6 +3,7 @@ from app.services.workflow_analyzer import WorkflowAnalyzer
 
 
 def pattern_agent(state: AgentState):
+
     print("==================================")
     print("Running Pattern Agent")
     print("==================================")
@@ -29,7 +30,24 @@ def pattern_agent(state: AgentState):
         )
     )
 
+    # -----------------------------
+    # Remove duplicate insights
+    # -----------------------------
+    unique = {}
+    for insight in insights:
+
+        key = (
+            insight.issue,
+            insight.severity
+        )
+
+        if key not in unique:
+            unique[key] = insight
+
+    insights = list(unique.values())
+
+    print(f"TOTAL INSIGHTS : {len(insights)}")
 
     return {
-    "insights": insights
+        "insights": insights
     }

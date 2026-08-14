@@ -11,25 +11,65 @@ class RecommendationService:
         if insight.issue == "Approval Delay":
 
             return {
-                "impact": "Delayed approvals can slow project delivery.",
-                "recommendation": "Reduce approval layers or define approval SLAs."
+
+                "impact":
+                (
+                    "Multiple Jira tickets have exceeded the approval "
+                    "threshold, increasing workflow cycle time and "
+                    "raising the risk of SLA violations."
+                ),
+
+                "recommendation":
+                (
+                    "Review the approval queue, escalate overdue "
+                    "tickets, and redistribute approvals among "
+                    "available team members."
+                )
             }
 
         if insight.issue == "Workflow Blocker":
 
             return {
-                "impact": "Blocked tasks can halt workflow progress.",
-                "recommendation": "Identify blocker owner and resolve dependency quickly."
+
+                "impact":
+                (
+                    "Blocked tickets are preventing downstream "
+                    "workflow execution and delaying project delivery."
+                ),
+
+                "recommendation":
+                (
+                    "Identify the blocker owner, resolve the "
+                    "dependency, and monitor blocked items daily."
+                )
             }
 
         if insight.issue == "Ownership Instability":
 
             return {
-                "impact": "Frequent reassignments reduce accountability.",
-                "recommendation": "Assign a single owner for the ticket lifecycle."
+
+                "impact":
+                (
+                    "Frequent ownership changes reduce accountability "
+                    "and increase delivery delays."
+                ),
+
+                "recommendation":
+                (
+                    "Assign a primary owner for the complete ticket "
+                    "lifecycle and limit unnecessary reassignments."
+                )
             }
 
         return {
-            "impact": "Unknown impact",
-            "recommendation": "Further investigation required."
+
+            "impact":
+            (
+                "Potential workflow inefficiency detected."
+            ),
+
+            "recommendation":
+            (
+                "Review the workflow and investigate the issue."
+            )
         }
