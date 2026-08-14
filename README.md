@@ -29,6 +29,7 @@ CognitiveOps converts this operational data into structured intelligence.
 
 ### Core Pipeline
 
+```text
 Jira / Workflow Data
         ↓
 Data Ingestion
@@ -46,6 +47,7 @@ AI Insights
 Recommendations
         ↓
 React Dashboard
+```
 
 ---
 
@@ -183,7 +185,7 @@ It includes:
                                │
                                ▼
                     ┌──────────────────────┐
-                    │    Data Ingestion     │
+                    │    Data Ingestion    │
                     └──────────┬───────────┘
                                │
                                ▼
@@ -198,7 +200,7 @@ It includes:
              │ Pattern Agent                   │
              │ Workflow Agent                  │
              │ Reasoning Agent                 │
-             │ Recommendation Agent             │
+             │ Recommendation Agent            │
              └───────────────┬─────────────────┘
                              │
                              ▼
@@ -227,12 +229,13 @@ It includes:
                   │ Risk Analysis        │
                   │ Workflow Explorer    │
                   └──────────────────────┘
+```
 
+---
 
+# 🤖 AI Agent Architecture
 
-
-AI ARCHITECT
-
+```text
 Workflow Data
       │
       ▼
@@ -248,11 +251,12 @@ Reasoning Agent
 Recommendation Agent
       │
       ▼
+Insight Generation
+```
 
+---
 
-
-
-## 🚀 Live Demo
+# 🚀 Live Demo
 
 **Frontend:** [CognitiveOps Dashboard](https://cognitive-ops.vercel.app/)
 
@@ -260,17 +264,8 @@ Recommendation Agent
 
 **API Documentation:** [Swagger Docs](https://cognitiveops.onrender.com/docs)
 
+The deployed dashboard provides:
 
-
-
-
-## 🌐 Live Application
-
-Explore the deployed CognitiveOps dashboard:
-
-👉 **[Open CognitiveOps Dashboard](https://cognitive-ops.vercel.app/)**
-
-The dashboard provides:
 - Workflow Intelligence
 - AI-generated Insights
 - Risk Analysis
