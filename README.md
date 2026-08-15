@@ -264,10 +264,16 @@ Insight Generation
 
 **API Documentation:** [Swagger Docs](https://cognitiveops.onrender.com/docs)
 
-The deployed dashboard provides:
+
+
+👉 **[Open CognitiveOps](https://cognitive-ops.vercel.app/)**
+
+Explore the deployed CognitiveOps platform featuring:
 
 - Workflow Intelligence
 - AI-generated Insights
 - Risk Analysis
 - Workflow Explorer
 - Operational Recommendations
+
+
