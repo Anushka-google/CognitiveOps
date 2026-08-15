@@ -66,6 +66,21 @@ def jira_project_check():
             "error": str(e)
         }
 
+@router.get("/jira/identity-check")
+def jira_identity_check():
+
+    try:
+
+        jira_service = JiraService()
+
+        return jira_service.check_identity()
+
+    except Exception as e:
+
+        return {
+            "error": str(e)
+        }
+
 
 # =========================================================
 # ENVIRONMENT CHECK

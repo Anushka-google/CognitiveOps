@@ -97,6 +97,28 @@ class JiraService:
             "response": response.text
         }
 
+
+    def check_identity(self):
+
+    url = f"{self.base_url}/rest/api/3/myself"
+
+    response = requests.get(
+        url,
+        auth=HTTPBasicAuth(
+            self.email,
+            self.api_token
+        ),
+        headers={
+            "Accept": "application/json"
+        },
+        timeout=30
+    )
+
+    return {
+        "status": response.status_code,
+        "response": response.json()
+    }
+
     # ---------------------------------------------------------
     # MAP JIRA → WORKFLOW
     # ---------------------------------------------------------
