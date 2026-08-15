@@ -13,20 +13,215 @@ class JiraService:
 
     def __init__(self):
 
-        self.base_url = os.getenv("JIRA_BASE_URL", "").strip()
+        self.base_url = os.getenv("JIRA_BASE_URL", "").strip().rstrip("/")
         self.email = os.getenv("JIRA_EMAIL", "").strip()
         self.api_token = os.getenv("JIRA_API_TOKEN", "").strip()
         self.project_key = os.getenv("JIRA_PROJECT_KEY", "").strip()
+
+        self.auth = HTTPBasicAuth(
+            self.email,
+            self.api_token
+        )
+
+        self.headers = {
+            "Accept": "application/json"
+        }
+
+    # =========================================================
+    # BASIC CONFIG CHECK
+    # =========================================================
+    def check_config(self):
+
+        return {
+            "base_url_exists": bool(self.base_url),
+            "email_exists": bool(self.email),
+            "token_exists": bool(self.api_token),
+            "project_key": self.project_key
+        }
+
+    # =========================================================
+    # CHECK JIRA ACCOUNT
+    # =========================================================
+    def check_identity(self):
+
+        url = f"{self.base_url}/rest/api/3/myself"
+
+        response = requests.get(
+            url,
+            auth=self.auth,
+            headers=self.headers,
+            timeout=30
+        )
+
+        print("\n==============================================")
+        print("             JIRA IDENTITY CHECK")
+        print("==============================================")
+
+        print("URL    :", url)
+        print("STATUS :", response.status_code)
+        print("BODY   :", response.text)
+
+        print("==============================================\n")
+
+        try:
+            data = response.json()
+        except Exception:
+            data = {
+                "raw_response": response.text
+            }
+
+        return {
+            "status": response.status_code,
+            "response": data
+        }
+
+    # =========================================================
+    # CHECK PROJECT
+    # =========================================================
+    def check_project(self):
+
+        url = (
+            f"{self.base_url}"
+            f"/rest/api/3/project/{self.project_key}"
+        )
+
+        response = requests.get(
+            url,
+            auth=self.auth,
+            headers=self.headers,
+            timeout=30
+        )
+
+        print("\n==============================================")
+        print("              JIRA PROJECT CHECK")
+        print("==============================================")
+
+        print("PROJECT :", self.project_key)
+        print("URL     :", url)
+        print("STATUS  :", response.status_code)
+        print("BODY    :", response.text)
+
+        print("==============================================\n")
+
+        try:
+            data = response.json()
+        except Exception:
+            data = {
+                "raw_response": response.text
+            }
+
+        return {
+            "status": response.status_code,
+            "response": data
+        }
+
+    # =========================================================
+    # CHECK BROWSE PROJECT PERMISSION
+    # =========================================================
+    def check_permissions(self):
+
+        url = f"{self.base_url}/rest/api/3/mypermissions"
+
+        params = {
+            "projectKey": self.project_key,
+            "permissions": "BROWSE_PROJECTS,VIEW_ISSUES"
+        }
+
+        response = requests.get(
+            url,
+            params=params,
+            auth=self.auth,
+            headers=self.headers,
+            timeout=30
+        )
+
+        print("\n==============================================")
+        print("             JIRA PERMISSION CHECK")
+        print("==============================================")
+
+        print("PROJECT :", self.project_key)
+        print("URL     :", response.request.url)
+        print("STATUS  :", response.status_code)
+        print("BODY    :", response.text)
+
+        print("==============================================\n")
+
+        try:
+            data = response.json()
+        except Exception:
+            data = {
+                "raw_response": response.text
+            }
+
+        return {
+            "status": response.status_code,
+            "response": data
+        }
+
+    # =========================================================
+    # GET ACCESSIBLE PROJECTS
+    # =========================================================
+    def get_accessible_projects(self):
+
+        url = f"{self.base_url}/rest/api/3/project/search"
+
+        params = {
+            "keys": self.project_key,
+            "maxResults": 50
+        }
+
+        response = requests.get(
+            url,
+            params=params,
+            auth=self.auth,
+            headers=self.headers,
+            timeout=30
+        )
+
+        print("\n==============================================")
+        print("          ACCESSIBLE PROJECT CHECK")
+        print("==============================================")
+
+        print("PROJECT :", self.project_key)
+        print("URL     :", response.request.url)
+        print("STATUS  :", response.status_code)
+        print("BODY    :", response.text)
+
+        print("==============================================\n")
+
+        try:
+            data = response.json()
+        except Exception:
+            data = {
+                "raw_response": response.text
+            }
+
+        return {
+            "status": response.status_code,
+            "response": data
+        }
 
     # =========================================================
     # GET JIRA TICKETS
     # =========================================================
     def get_tickets(self):
 
+        if not self.base_url:
+            raise Exception("JIRA_BASE_URL is missing")
+
+        if not self.email:
+            raise Exception("JIRA_EMAIL is missing")
+
+        if not self.api_token:
+            raise Exception("JIRA_API_TOKEN is missing")
+
+        if not self.project_key:
+            raise Exception("JIRA_PROJECT_KEY is missing")
+
         url = f"{self.base_url}/rest/api/3/search/jql"
 
         params = {
-            "jql": f"project = {self.project_key}",
+            "jql": f'project = "{self.project_key}"',
             "fields": (
                 "summary,"
                 "status,"
@@ -43,22 +238,13 @@ class JiraService:
         response = requests.get(
             url,
             params=params,
-            auth=HTTPBasicAuth(
-                self.email,
-                self.api_token
-            ),
-            headers={
-                "Accept": "application/json"
-            },
+            auth=self.auth,
+            headers=self.headers,
             timeout=30
         )
 
-        # =====================================================
-        # JIRA DEBUG
-        # =====================================================
-
         print("\n==============================================")
-        print("              JIRA DEBUG")
+        print("                JIRA SEARCH")
         print("==============================================")
 
         print("BASE URL :", self.base_url)
@@ -72,20 +258,12 @@ class JiraService:
 
         print("==============================================\n")
 
-        # =====================================================
-        # HANDLE ERROR
-        # =====================================================
-
         if response.status_code != 200:
 
             raise Exception(
                 f"Jira API Error {response.status_code}: "
                 f"{response.text}"
             )
-
-        # =====================================================
-        # PARSE RESPONSE
-        # =====================================================
 
         data = response.json()
 
@@ -124,75 +302,3 @@ class JiraService:
         print("TOTAL WORKFLOWS :", len(workflows))
 
         return workflows
-
-    # =========================================================
-    # CHECK JIRA ACCOUNT
-    # =========================================================
-    def check_identity(self):
-
-        url = f"{self.base_url}/rest/api/3/myself"
-
-        response = requests.get(
-            url,
-            auth=HTTPBasicAuth(
-                self.email,
-                self.api_token
-            ),
-            headers={
-                "Accept": "application/json"
-            },
-            timeout=30
-        )
-
-        print("\n==============================================")
-        print("           JIRA IDENTITY CHECK")
-        print("==============================================")
-
-        print("STATUS   :", response.status_code)
-        print("RESPONSE :")
-        print(response.text)
-
-        print("==============================================\n")
-
-        return {
-            "status": response.status_code,
-            "response": response.json()
-        }
-
-    # =========================================================
-    # CHECK JIRA PROJECT
-    # =========================================================
-    def check_project(self):
-
-        url = (
-            f"{self.base_url}"
-            f"/rest/api/3/project/{self.project_key}"
-        )
-
-        response = requests.get(
-            url,
-            auth=HTTPBasicAuth(
-                self.email,
-                self.api_token
-            ),
-            headers={
-                "Accept": "application/json"
-            },
-            timeout=30
-        )
-
-        print("\n==============================================")
-        print("             JIRA PROJECT CHECK")
-        print("==============================================")
-
-        print("PROJECT  :", self.project_key)
-        print("STATUS   :", response.status_code)
-        print("RESPONSE :")
-        print(response.text)
-
-        print("==============================================\n")
-
-        return {
-            "status": response.status_code,
-            "response": response.json()
-        }
