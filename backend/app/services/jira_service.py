@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 from app.services.workflow_mapper import map_jira_to_workflow
 
+
 load_dotenv()
 
 
@@ -12,10 +13,10 @@ class JiraService:
 
     def __init__(self):
 
-        self.base_url = os.getenv("JIRA_BASE_URL").strip()
-        self.email = os.getenv("JIRA_EMAIL").strip()
-        self.api_token = os.getenv("JIRA_API_TOKEN").strip()
-        self.project_key = os.getenv("JIRA_PROJECT_KEY").strip()
+        self.base_url = os.getenv("JIRA_BASE_URL", "").strip()
+        self.email = os.getenv("JIRA_EMAIL", "").strip()
+        self.api_token = os.getenv("JIRA_API_TOKEN", "").strip()
+        self.project_key = os.getenv("JIRA_PROJECT_KEY", "").strip()
 
     def get_tickets(self):
 
