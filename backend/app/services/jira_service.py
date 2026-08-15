@@ -18,54 +18,74 @@ class JiraService:
         self.api_token = os.getenv("JIRA_API_TOKEN", "").strip()
         self.project_key = os.getenv("JIRA_PROJECT_KEY", "").strip()
 
-    # ---------------------------------------------------------
+    # =========================================================
     # GET JIRA TICKETS
-    # ---------------------------------------------------------
+    # =========================================================
     def get_tickets(self):
 
         url = f"{self.base_url}/rest/api/3/search/jql"
 
-        payload = {
+        params = {
             "jql": f"project = {self.project_key}",
-            "fields": [
-                "summary",
-                "status",
-                "assignee",
-                "created",
-                "updated",
-                "priority",
-                "issuetype",
+            "fields": (
+                "summary,"
+                "status,"
+                "assignee,"
+                "created,"
+                "updated,"
+                "priority,"
+                "issuetype,"
                 "duedate"
-            ],
-            "maxResults": 100,
-            "validateQuery": "strict"
+            ),
+            "maxResults": 100
         }
 
-        response = requests.post(
+        response = requests.get(
             url,
-            json=payload,
+            params=params,
             auth=HTTPBasicAuth(
                 self.email,
                 self.api_token
             ),
             headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json"
+                "Accept": "application/json"
             },
             timeout=30
         )
 
-        print("\n================ JIRA DEBUG ================")
+        # =====================================================
+        # JIRA DEBUG
+        # =====================================================
+
+        print("\n==============================================")
+        print("              JIRA DEBUG")
+        print("==============================================")
+
         print("BASE URL :", self.base_url)
         print("EMAIL    :", self.email)
         print("PROJECT  :", self.project_key)
         print("REQUEST  :", response.request.url)
         print("STATUS   :", response.status_code)
-        print("BODY     :")
-        print(response.text)
-        print("============================================\n")
 
-        response.raise_for_status()
+        print("RESPONSE :")
+        print(response.text)
+
+        print("==============================================\n")
+
+        # =====================================================
+        # HANDLE ERROR
+        # =====================================================
+
+        if response.status_code != 200:
+
+            raise Exception(
+                f"Jira API Error {response.status_code}: "
+                f"{response.text}"
+            )
+
+        # =====================================================
+        # PARSE RESPONSE
+        # =====================================================
 
         data = response.json()
 
@@ -75,9 +95,9 @@ class JiraService:
 
         return issues
 
-    # ---------------------------------------------------------
-    # MAP JIRA TICKETS TO WORKFLOW RECORDS
-    # ---------------------------------------------------------
+    # =========================================================
+    # CONVERT JIRA TICKETS TO WORKFLOW RECORDS
+    # =========================================================
     def get_workflow_records(self):
 
         tickets = self.get_tickets()
@@ -97,16 +117,17 @@ class JiraService:
             except Exception as e:
 
                 print(
-                    f"Failed mapping {ticket.get('key')} -> {e}"
+                    f"Failed mapping "
+                    f"{ticket.get('key')} -> {e}"
                 )
 
         print("TOTAL WORKFLOWS :", len(workflows))
 
         return workflows
 
-    # ---------------------------------------------------------
-    # JIRA IDENTITY CHECK
-    # ---------------------------------------------------------
+    # =========================================================
+    # CHECK JIRA ACCOUNT
+    # =========================================================
     def check_identity(self):
 
         url = f"{self.base_url}/rest/api/3/myself"
@@ -123,19 +144,24 @@ class JiraService:
             timeout=30
         )
 
-        print("\n================ JIRA IDENTITY ================")
-        print("STATUS :", response.status_code)
-        print("BODY   :", response.text)
-        print("================================================\n")
+        print("\n==============================================")
+        print("           JIRA IDENTITY CHECK")
+        print("==============================================")
+
+        print("STATUS   :", response.status_code)
+        print("RESPONSE :")
+        print(response.text)
+
+        print("==============================================\n")
 
         return {
             "status": response.status_code,
             "response": response.json()
         }
 
-    # ---------------------------------------------------------
+    # =========================================================
     # CHECK JIRA PROJECT
-    # ---------------------------------------------------------
+    # =========================================================
     def check_project(self):
 
         url = (
@@ -155,11 +181,16 @@ class JiraService:
             timeout=30
         )
 
-        print("\n================ JIRA PROJECT CHECK ================")
-        print("PROJECT :", self.project_key)
-        print("STATUS  :", response.status_code)
-        print("BODY    :", response.text)
-        print("====================================================\n")
+        print("\n==============================================")
+        print("             JIRA PROJECT CHECK")
+        print("==============================================")
+
+        print("PROJECT  :", self.project_key)
+        print("STATUS   :", response.status_code)
+        print("RESPONSE :")
+        print(response.text)
+
+        print("==============================================\n")
 
         return {
             "status": response.status_code,
