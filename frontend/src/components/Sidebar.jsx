@@ -1,15 +1,11 @@
-import { Link } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import "./Sidebar.css";
 
-function Sidebar({
-  collapsed,
-  setCollapsed,
-}) {
+function Sidebar({ collapsed, setCollapsed }) {
+  const location = useLocation();
 
   const scrollToSection = (id) => {
-
-    const element =
-      document.getElementById(id);
+    const element = document.getElementById(id);
 
     if (element) {
       element.scrollIntoView({
@@ -19,218 +15,181 @@ function Sidebar({
     }
   };
 
+  const isDashboard = location.pathname === "/dashboard";
+  const isWorkflow = location.pathname === "/workflow";
+
   return (
     <aside
-      className={
-        collapsed
-          ? "sidebar sidebar-collapsed"
-          : "sidebar"
-      }
+      className={`sidebar ${
+        collapsed ? "sidebar-collapsed" : ""
+      }`}
     >
-
-      {/* LOGO */}
+      {/* ================= HEADER ================= */}
 
       <div className="sidebar-header">
-
-        <Link
-          to="/"
-          className="sidebar-brand"
-        >
-          <div className="sidebar-logo">
-            C
-          </div>
+        <Link to="/" className="sidebar-brand">
+          <div className="sidebar-logo">C</div>
 
           {!collapsed && (
             <div className="sidebar-brand-text">
-              <strong>
-                CognitiveOps
-              </strong>
-
-              <span>
-                Intelligence Engine
-              </span>
+              <strong>CognitiveOps</strong>
+              <span>Intelligence Engine</span>
             </div>
           )}
-
         </Link>
 
         <button
+          type="button"
           className="collapse-button"
-          onClick={() =>
-            setCollapsed(
-              !collapsed
-            )
-          }
+          onClick={() => setCollapsed(!collapsed)}
           aria-label="Toggle sidebar"
         >
           {collapsed ? "›" : "‹"}
         </button>
-
       </div>
 
-
-      {/* NAVIGATION */}
+      {/* ================= NAVIGATION ================= */}
 
       <nav className="sidebar-navigation">
 
+        {/* ---------- OVERVIEW ---------- */}
+
         {!collapsed && (
-          <span className="sidebar-section-title">
+          <div className="sidebar-section-title">
             OVERVIEW
-          </span>
+          </div>
         )}
 
         <button
-          className="sidebar-item active"
-          onClick={() =>
-            scrollToSection(
-              "overview"
-            )
-          }
+          type="button"
+          className={`sidebar-item ${
+            isDashboard ? "active" : ""
+          }`}
+          onClick={() => scrollToSection("overview")}
+          title={collapsed ? "Overview" : ""}
         >
-          <span className="sidebar-icon">
-            ▦
-          </span>
+          <span className="sidebar-icon">▦</span>
 
           {!collapsed && (
-            <span>Overview</span>
+            <span className="sidebar-item-text">
+              Overview
+            </span>
           )}
         </button>
 
+        {/* ---------- INTELLIGENCE ---------- */}
 
         {!collapsed && (
-          <span className="sidebar-section-title">
+          <div className="sidebar-section-title">
             INTELLIGENCE
-          </span>
+          </div>
         )}
 
         <button
+          type="button"
           className="sidebar-item"
-          onClick={() =>
-            scrollToSection(
-              "analytics"
-            )
-          }
+          onClick={() => scrollToSection("analytics")}
+          title={collapsed ? "Analytics" : ""}
         >
-          <span className="sidebar-icon">
-            ◈
-          </span>
+          <span className="sidebar-icon">◈</span>
 
           {!collapsed && (
-            <span>Analytics</span>
+            <span className="sidebar-item-text">
+              Analytics
+            </span>
           )}
         </button>
 
-
         <button
+          type="button"
           className="sidebar-item"
-          onClick={() =>
-            scrollToSection(
-              "risk-analysis"
-            )
-          }
+          onClick={() => scrollToSection("risk-analysis")}
+          title={collapsed ? "Risk Analysis" : ""}
         >
-          <span className="sidebar-icon">
-            ◉
-          </span>
+          <span className="sidebar-icon">◉</span>
 
           {!collapsed && (
-            <span>
+            <span className="sidebar-item-text">
               Risk Analysis
             </span>
           )}
         </button>
 
-
         <button
+          type="button"
           className="sidebar-item"
-          onClick={() =>
-            scrollToSection(
-              "ai-insights"
-            )
-          }
+          onClick={() => scrollToSection("ai-insights")}
+          title={collapsed ? "AI Insights" : ""}
         >
-          <span className="sidebar-icon">
-            ✦
-          </span>
+          <span className="sidebar-icon">✦</span>
 
           {!collapsed && (
-            <span>
+            <span className="sidebar-item-text">
               AI Insights
             </span>
           )}
         </button>
 
+        {/* ---------- WORKFLOW ---------- */}
 
         {!collapsed && (
-          <span className="sidebar-section-title">
+          <div className="sidebar-section-title">
             WORKFLOW
-          </span>
+          </div>
         )}
 
-        <button
-          className="sidebar-item"
-          onClick={() =>
-            scrollToSection(
-              "pipeline"
-            )
-          }
+        <Link
+          to="/workflow"
+          className={`sidebar-item sidebar-link ${
+            isWorkflow ? "active" : ""
+          }`}
+          title={collapsed ? "Workflow Explorer" : ""}
         >
-          <span className="sidebar-icon">
-            ⌁
-          </span>
+          <span className="sidebar-icon">⌁</span>
 
           {!collapsed && (
-            <span>
-              Analysis Pipeline
+            <span className="sidebar-item-text">
+              Workflow Explorer
             </span>
           )}
-        </button>
+        </Link>
 
       </nav>
 
-
-      {/* BOTTOM */}
+      {/* ================= FOOTER ================= */}
 
       <div className="sidebar-footer">
 
-        <div className="sidebar-status">
+        {/* SYSTEM STATUS */}
 
-          <span className="status-indicator">
-          </span>
+        <div className="sidebar-status">
+          <span className="status-indicator"></span>
 
           {!collapsed && (
-            <div>
-              <strong>
-                System Operational
-              </strong>
-
-              <span>
-                Jira connected
-              </span>
+            <div className="sidebar-status-content">
+              <strong>System Operational</strong>
+              <span>Jira connected</span>
             </div>
           )}
-
         </div>
+
+        {/* HOME */}
 
         <Link
           to="/"
           className="sidebar-home-link"
+          title={collapsed ? "Back to Home" : ""}
         >
-
-          <span className="sidebar-icon">
-            ←
-          </span>
+          <span className="sidebar-icon">←</span>
 
           {!collapsed && (
-            <span>
+            <span className="sidebar-item-text">
               Back to Home
             </span>
           )}
-
         </Link>
 
       </div>
-
     </aside>
   );
 }

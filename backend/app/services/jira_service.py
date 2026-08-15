@@ -21,21 +21,31 @@ class JiraService:
 
         url = f"{self.base_url}/rest/api/3/search/jql"
 
-        params = {
-            "jql": f"project={self.project_key}",
-            "fields": "summary,status,assignee,created,updated,priority,issuetype,duedate",
+        payload = {
+            "jql": f"project = {self.project_key}",
+            "fields": [
+                "summary",
+                "status",
+                "assignee",
+                "created",
+                "updated",
+                "priority",
+                "issuetype",
+                "duedate"
+            ],
             "maxResults": 100
         }
 
-        response = requests.get(
+        response = requests.post(
             url,
-            params=params,
+            json=payload,
             auth=HTTPBasicAuth(
                 self.email,
                 self.api_token
             ),
             headers={
-                "Accept": "application/json"
+                "Accept": "application/json",
+                "Content-Type": "application/json"
             }
         )
 
