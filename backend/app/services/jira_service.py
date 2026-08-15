@@ -34,41 +34,55 @@ class JiraService:
                 "issuetype",
                 "duedate"
             ],
-            "maxResults": 100
+            "maxResults": 100,
+            "validateQuery": "strict"
         }
-
-        response = requests.post(
-            url,
-            json=payload,
-            auth=HTTPBasicAuth(
-                self.email,
-                self.api_token
-            ),
-            headers={
-                "Accept": "application/json",
-                "Content-Type": "application/json"
-            }
-        )
 
         print("\n================ JIRA DEBUG ================")
         print("BASE URL :", self.base_url)
         print("EMAIL    :", self.email)
         print("PROJECT  :", self.project_key)
-        print("REQUEST  :", response.request.url)
-        print("STATUS   :", response.status_code)
-        print("BODY     :")
-        print(response.text)
-        print("============================================\n")
+        print("TOKEN EXISTS :", bool(self.api_token))
+        print("JQL      :", payload["jql"])
+        print("REQUEST  :", url)
 
-        response.raise_for_status()
+        try:
 
-        data = response.json()
+            response = requests.post(
+                url,
+                json=payload,
+                auth=HTTPBasicAuth(
+                    self.email,
+                    self.api_token
+                ),
+                headers={
+                    "Accept": "application/json",
+                    "Content-Type": "application/json"
+                },
+                timeout=30
+            )
 
-        issues = data.get("issues", [])
+            print("STATUS   :", response.status_code)
+            print("BODY     :")
+            print(response.text)
+            print("============================================\n")
 
-        print("TOTAL ISSUES :", len(issues))
+            response.raise_for_status()
 
-        return issues
+            data = response.json()
+
+            issues = data.get("issues", [])
+
+            print("TOTAL ISSUES :", len(issues))
+
+            return issues
+
+        except Exception as e:
+
+            print("JIRA ERROR :", str(e))
+            print("============================================\n")
+
+            raise
 
     def get_workflow_records(self):
 
