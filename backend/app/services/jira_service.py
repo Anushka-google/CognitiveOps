@@ -5,7 +5,6 @@ from dotenv import load_dotenv
 
 from app.services.workflow_mapper import map_jira_to_workflow
 
-
 load_dotenv()
 
 
@@ -18,12 +17,15 @@ class JiraService:
         self.api_token = os.getenv("JIRA_API_TOKEN", "").strip()
         self.project_key = os.getenv("JIRA_PROJECT_KEY", "").strip()
 
+    # ---------------------------------------------------------
+    # GET JIRA TICKETS
+    # ---------------------------------------------------------
     def get_tickets(self):
 
         url = f"{self.base_url}/rest/api/3/search/jql"
 
         payload = {
-            "jql": f"project = {self.project_key}",
+            "jql": f'project = "{self.project_key}"',
             "fields": [
                 "summary",
                 "status",
@@ -37,57 +39,72 @@ class JiraService:
             "maxResults": 100
         }
 
-        print("\n================ JIRA DEBUG ================")
-        print("BASE URL :", self.base_url)
-        print("EMAIL    :", self.email)
-        print("PROJECT  :", self.project_key)
-        print("TOKEN EXISTS :", bool(self.api_token))
-        print("JQL      :", payload["jql"])
-        print("REQUEST  :", url)
+        response = requests.post(
+            url,
+            json=payload,
+            auth=HTTPBasicAuth(
+                self.email,
+                self.api_token
+            ),
+            headers={
+                "Accept": "application/json",
+                "Content-Type": "application/json"
+            },
+            timeout=30
+        )
 
-        try:
+        print("\n========== JIRA DEBUG ==========")
+        print("BASE URL:", self.base_url)
+        print("EMAIL:", self.email)
+        print("PROJECT:", self.project_key)
+        print("TOKEN EXISTS:", bool(self.api_token))
+        print("REQUEST URL:", response.request.url)
+        print("STATUS:", response.status_code)
+        print("RESPONSE:", response.text)
+        print("================================")
 
-            response = requests.post(
-                url,
-                json=payload,
-                auth=HTTPBasicAuth(
-                    self.email,
-                    self.api_token
-                ),
-                headers={
-                    "Accept": "application/json",
-                    "Content-Type": "application/json"
-                },
-                timeout=30
-            )
+        response.raise_for_status()
 
-            print("STATUS   :", response.status_code)
-            print("BODY     :")
-            print(response.text)
-            print("============================================\n")
+        data = response.json()
 
-            response.raise_for_status()
+        issues = data.get("issues", [])
 
-            data = response.json()
+        print("TOTAL ISSUES:", len(issues))
 
-            issues = data.get("issues", [])
+        return issues
 
-            print("TOTAL ISSUES :", len(issues))
+    # ---------------------------------------------------------
+    # GET JIRA PROJECT DIRECTLY
+    # ---------------------------------------------------------
+    def check_project(self):
 
-            return issues
+        url = f"{self.base_url}/rest/api/3/project/{self.project_key}"
 
-        except Exception as e:
+        response = requests.get(
+            url,
+            auth=HTTPBasicAuth(
+                self.email,
+                self.api_token
+            ),
+            headers={
+                "Accept": "application/json"
+            },
+            timeout=30
+        )
 
-            print("JIRA ERROR :", str(e))
-            print("============================================\n")
+        return {
+            "status": response.status_code,
+            "response": response.text
+        }
 
-            raise
-
+    # ---------------------------------------------------------
+    # MAP JIRA → WORKFLOW
+    # ---------------------------------------------------------
     def get_workflow_records(self):
 
         tickets = self.get_tickets()
 
-        print("TOTAL TICKETS :", len(tickets))
+        print("TOTAL TICKETS:", len(tickets))
 
         workflows = []
 
@@ -102,9 +119,9 @@ class JiraService:
             except Exception as e:
 
                 print(
-                    f"Failed mapping {ticket.get('key')} -> {e}"
+                    f"FAILED MAPPING {ticket.get('key')} -> {e}"
                 )
 
-        print("TOTAL WORKFLOWS :", len(workflows))
+        print("TOTAL WORKFLOWS:", len(workflows))
 
         return workflows
