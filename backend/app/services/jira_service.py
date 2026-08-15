@@ -34,8 +34,7 @@ class JiraService:
                 "issuetype",
                 "duedate"
             ],
-            "maxResults": 100,
-            "validateQuery": "strict"
+            "maxResults": 100
         }
 
         print("\n================ JIRA DEBUG ================")
