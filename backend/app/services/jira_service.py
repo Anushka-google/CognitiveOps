@@ -5,6 +5,7 @@ from dotenv import load_dotenv
 
 from app.services.workflow_mapper import map_jira_to_workflow
 
+
 load_dotenv()
 
 
@@ -25,7 +26,7 @@ class JiraService:
         url = f"{self.base_url}/rest/api/3/search/jql"
 
         payload = {
-            "jql": f'project = "{self.project_key}"',
+            "jql": f"project = {self.project_key}",
             "fields": [
                 "summary",
                 "status",
@@ -36,7 +37,8 @@ class JiraService:
                 "issuetype",
                 "duedate"
             ],
-            "maxResults": 100
+            "maxResults": 100,
+            "validateQuery": "strict"
         }
 
         response = requests.post(
@@ -53,15 +55,15 @@ class JiraService:
             timeout=30
         )
 
-        print("\n========== JIRA DEBUG ==========")
-        print("BASE URL:", self.base_url)
-        print("EMAIL:", self.email)
-        print("PROJECT:", self.project_key)
-        print("TOKEN EXISTS:", bool(self.api_token))
-        print("REQUEST URL:", response.request.url)
-        print("STATUS:", response.status_code)
-        print("RESPONSE:", response.text)
-        print("================================")
+        print("\n================ JIRA DEBUG ================")
+        print("BASE URL :", self.base_url)
+        print("EMAIL    :", self.email)
+        print("PROJECT  :", self.project_key)
+        print("REQUEST  :", response.request.url)
+        print("STATUS   :", response.status_code)
+        print("BODY     :")
+        print(response.text)
+        print("============================================\n")
 
         response.raise_for_status()
 
@@ -69,64 +71,18 @@ class JiraService:
 
         issues = data.get("issues", [])
 
-        print("TOTAL ISSUES:", len(issues))
+        print("TOTAL ISSUES :", len(issues))
 
         return issues
 
     # ---------------------------------------------------------
-    # GET JIRA PROJECT DIRECTLY
-    # ---------------------------------------------------------
-    def check_project(self):
-
-        url = f"{self.base_url}/rest/api/3/project/{self.project_key}"
-
-        response = requests.get(
-            url,
-            auth=HTTPBasicAuth(
-                self.email,
-                self.api_token
-            ),
-            headers={
-                "Accept": "application/json"
-            },
-            timeout=30
-        )
-
-        return {
-            "status": response.status_code,
-            "response": response.text
-        }
-
-
-    def check_identity(self):
-
-    url = f"{self.base_url}/rest/api/3/myself"
-
-    response = requests.get(
-        url,
-        auth=HTTPBasicAuth(
-            self.email,
-            self.api_token
-        ),
-        headers={
-            "Accept": "application/json"
-        },
-        timeout=30
-    )
-
-    return {
-        "status": response.status_code,
-        "response": response.json()
-    }
-
-    # ---------------------------------------------------------
-    # MAP JIRA → WORKFLOW
+    # MAP JIRA TICKETS TO WORKFLOW RECORDS
     # ---------------------------------------------------------
     def get_workflow_records(self):
 
         tickets = self.get_tickets()
 
-        print("TOTAL TICKETS:", len(tickets))
+        print("TOTAL TICKETS :", len(tickets))
 
         workflows = []
 
@@ -141,9 +97,71 @@ class JiraService:
             except Exception as e:
 
                 print(
-                    f"FAILED MAPPING {ticket.get('key')} -> {e}"
+                    f"Failed mapping {ticket.get('key')} -> {e}"
                 )
 
-        print("TOTAL WORKFLOWS:", len(workflows))
+        print("TOTAL WORKFLOWS :", len(workflows))
 
         return workflows
+
+    # ---------------------------------------------------------
+    # JIRA IDENTITY CHECK
+    # ---------------------------------------------------------
+    def check_identity(self):
+
+        url = f"{self.base_url}/rest/api/3/myself"
+
+        response = requests.get(
+            url,
+            auth=HTTPBasicAuth(
+                self.email,
+                self.api_token
+            ),
+            headers={
+                "Accept": "application/json"
+            },
+            timeout=30
+        )
+
+        print("\n================ JIRA IDENTITY ================")
+        print("STATUS :", response.status_code)
+        print("BODY   :", response.text)
+        print("================================================\n")
+
+        return {
+            "status": response.status_code,
+            "response": response.json()
+        }
+
+    # ---------------------------------------------------------
+    # CHECK JIRA PROJECT
+    # ---------------------------------------------------------
+    def check_project(self):
+
+        url = (
+            f"{self.base_url}"
+            f"/rest/api/3/project/{self.project_key}"
+        )
+
+        response = requests.get(
+            url,
+            auth=HTTPBasicAuth(
+                self.email,
+                self.api_token
+            ),
+            headers={
+                "Accept": "application/json"
+            },
+            timeout=30
+        )
+
+        print("\n================ JIRA PROJECT CHECK ================")
+        print("PROJECT :", self.project_key)
+        print("STATUS  :", response.status_code)
+        print("BODY    :", response.text)
+        print("====================================================\n")
+
+        return {
+            "status": response.status_code,
+            "response": response.json()
+        }
