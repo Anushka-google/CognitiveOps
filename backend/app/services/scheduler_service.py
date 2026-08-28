@@ -14,6 +14,11 @@ from app.services.workflow_graph_service import (
     WorkflowGraphService
 )
 
+from datetime import (
+    datetime,
+    timedelta
+)
+
 
 def run_analysis():
 
@@ -47,9 +52,6 @@ def run_analysis():
     slack_service = (
         SlackService()
     )
-    slack_service.send_alert(
-    "🚀 Scheduler Test Success"
-)
 
     for insight in insights:
 
@@ -75,8 +77,6 @@ Evidence:
                 message
             )
 
-            break
-
     print(
         result["workflow_health"]
     )
@@ -84,11 +84,6 @@ Evidence:
 
 scheduler = (
     BackgroundScheduler()
-)
-
-from datetime import (
-    datetime,
-    timedelta
 )
 
 scheduler.add_job(
@@ -99,4 +94,3 @@ scheduler.add_job(
         datetime.now()
         + timedelta(seconds=10)
 )
-

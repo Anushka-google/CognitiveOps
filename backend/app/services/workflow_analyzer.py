@@ -1,7 +1,9 @@
 from collections import defaultdict
 
 from app.models.insight import Insight
-from app.services.recommendation_service import RecommendationService
+from app.services.recommendation_service import (
+    RecommendationService
+)
 from app.services.gemini_insight_service import (
     GeminiInsightService
 )
@@ -41,24 +43,21 @@ class WorkflowAnalyzer:
         for workflow in delayed_workflows:
 
             evidence.append(
-
-                f"{workflow.ticket_id} waiting "
-                f"{workflow.days_waiting} days"
-
+                f"Ticket: {workflow.ticket_id}\n"
+                f"Title: {workflow.title}\n"
+                f"Status: {workflow.status}\n"
+                f"Priority: {workflow.priority}\n"
+                f"Assignee: {workflow.assignee}\n"
+                f"Due Date: {workflow.due_date}\n"
+                f"Waiting: {workflow.days_waiting} days"
             )
 
         return [
-
             Insight(
-
                 issue="Approval Delay",
-
                 evidence=evidence,
-
                 severity="High"
-
             )
-
         ]
 
     # ----------------------------------------
@@ -85,23 +84,15 @@ class WorkflowAnalyzer:
         for workflow in blocked:
 
             evidence.append(
-
                 f"{workflow.ticket_id} is Blocked"
-
             )
 
         return [
-
             Insight(
-
                 issue="Workflow Blocker",
-
                 evidence=evidence,
-
                 severity="High"
-
             )
-
         ]
 
     # ----------------------------------------
@@ -133,26 +124,18 @@ class WorkflowAnalyzer:
             if reassignment_count > 2:
 
                 evidence.append(
-
                     f"{ticket_id} reassigned "
                     f"{reassignment_count} times"
-
                 )
 
         if len(evidence) > 0:
 
             insights.append(
-
                 Insight(
-
                     issue="Ownership Instability",
-
                     evidence=evidence,
-
                     severity="High"
-
                 )
-
             )
 
         return insights
@@ -198,11 +181,9 @@ class WorkflowAnalyzer:
             try:
 
                 updated = (
-
                     gemini_service.generate_insight_analysis(
                         insight
                     )
-
                 )
 
                 updated_insights.append(
@@ -216,11 +197,9 @@ class WorkflowAnalyzer:
                 )
 
                 recommendation = (
-
                     recommendation_service.generate_recommendation(
                         insight
                     )
-
                 )
 
                 insight.impact = (

@@ -1,57 +1,138 @@
+import logging
+import time
+
 from app.agents.state import AgentState
+
 from app.services.gemini_insight_service import (
     GeminiInsightService
 )
+
 from app.services.recommendation_service import (
     RecommendationService
 )
 
 
-def reasoning_agent(state: AgentState):
+logger = logging.getLogger(__name__)
 
-    print("==================================")
-    print("Running Reasoning Agent")
-    print("==================================")
 
-    gemini_service = GeminiInsightService()
-    recommendation_service = RecommendationService()
+def reasoning_agent(
+    state: AgentState
+):
+
+    logger.info(
+        "AGENT START | reasoning_agent"
+    )
+
+    start_time = time.perf_counter()
+
+    gemini_service = (
+        GeminiInsightService()
+    )
+
+    recommendation_service = (
+        RecommendationService()
+    )
 
     updated_insights = []
 
-    for insight in state["insights"]:
+    # ==========================================
+    # Cross-source evidence
+    # ==========================================
 
-        try:
+    combined_evidence = state.get(
+        "combined_evidence",
+        {}
+    )
 
-            updated_insight = (
-                gemini_service.generate_insight_analysis(
-                    insight
+    logger.info(
+        "REASONING EVIDENCE | jira=%s | slack=%s",
+        len(
+            combined_evidence.get(
+                "jira",
+                []
+            )
+        ),
+        len(
+            combined_evidence.get(
+                "slack",
+                []
+            )
+        )
+    )
+
+    try:
+
+        for insight in state["insights"]:
+
+            try:
+
+                updated_insight = (
+                    gemini_service
+                    .generate_insight_analysis(
+                        insight,
+                        combined_evidence
+                    )
                 )
-            )
 
-        except Exception as e:
+            except Exception as e:
 
-            print(f"Gemini Error : {e}")
-
-            recommendation = (
-                recommendation_service.generate_recommendation(
-                    insight
+                logger.error(
+                    "GEMINI ERROR | "
+                    "reasoning_agent | %s",
+                    e
                 )
+
+                recommendation = (
+                    recommendation_service
+                    .generate_recommendation(
+                        insight
+                    )
+                )
+
+                insight.impact = (
+                    recommendation["impact"]
+                )
+
+                insight.recommendation = (
+                    recommendation[
+                        "recommendation"
+                    ]
+                )
+
+                updated_insight = insight
+
+            updated_insights.append(
+                updated_insight
             )
 
-            insight.impact = (
-                recommendation["impact"]
-            )
-
-            insight.recommendation = (
-                recommendation["recommendation"]
-            )
-
-            updated_insight = insight
-
-        updated_insights.append(
-            updated_insight
+        execution_time = (
+            time.perf_counter()
+            - start_time
         )
 
-    return {
-        "insights": updated_insights
-    }
+        logger.info(
+            "AGENT END | reasoning_agent | "
+            "execution_time=%.2fs | "
+            "insights=%s",
+            execution_time,
+            len(updated_insights)
+        )
+
+        return {
+            "insights": updated_insights
+        }
+
+    except Exception:
+
+        execution_time = (
+            time.perf_counter()
+            - start_time
+        )
+
+        logger.exception(
+            "AGENT FAILED | reasoning_agent | "
+            "execution_time=%.2fs",
+            execution_time
+        )
+
+        raise
