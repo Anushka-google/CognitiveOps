@@ -2,6 +2,7 @@ import logging
 import time
 
 from app.agents.state import AgentState
+
 from app.services.workflow_analyzer import (
     WorkflowAnalyzer
 )
@@ -44,9 +45,9 @@ def pattern_agent(
             )
         )
 
-        # -----------------------------
+        # ==========================================
         # Remove duplicate insights
-        # -----------------------------
+        # ==========================================
 
         unique = {}
 
@@ -77,11 +78,53 @@ def pattern_agent(
             len(insights)
         )
 
-        return {
-            "insights": insights
+        # ==========================================
+        # Structured Agent Output
+        # ==========================================
+
+        agent_outputs = dict(
+            state.get(
+                "agent_outputs",
+                {}
+            )
+        )
+
+        agent_outputs[
+            "pattern_agent"
+        ] = {
+
+            "agent": "pattern_agent",
+
+            "status": "success",
+
+            "output": {
+
+                "insights_count": len(
+                    insights
+                )
+            },
+
+            "execution_time": (
+                execution_time
+            ),
+
+            "error": None
         }
 
-    except Exception:
+        logger.info(
+            "STRUCTURED OUTPUT | "
+            "agent=pattern_agent | "
+            "status=success"
+        )
+
+        return {
+
+            "insights": insights,
+
+            "agent_outputs": agent_outputs
+        }
+
+    except Exception as e:
 
         execution_time = (
             time.perf_counter()
@@ -94,4 +137,35 @@ def pattern_agent(
             execution_time
         )
 
-        raise
+        agent_outputs = dict(
+            state.get(
+                "agent_outputs",
+                {}
+            )
+        )
+
+        agent_outputs[
+            "pattern_agent"
+        ] = {
+
+            "agent": "pattern_agent",
+
+            "status": "failed",
+
+            "output": None,
+
+            "execution_time": (
+                execution_time
+            ),
+
+            "error": str(e)
+        }
+
+        return {
+
+            "agent_outputs": agent_outputs,
+
+            "errors": [
+                str(e)
+            ]
+        }

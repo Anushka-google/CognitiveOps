@@ -26,6 +26,21 @@
   line-height: 1.6;
 }
 
+.insight-evidence {
+  margin-top: 16px;
+}
+
+.insight-evidence ul {
+  margin: 10px 0 0 18px;
+  padding: 0;
+  color: #cbd5e1;
+}
+
+.insight-evidence li {
+  margin-bottom: 6px;
+  line-height: 1.5;
+}
+
 .severity-badge {
   display: inline-block;
 

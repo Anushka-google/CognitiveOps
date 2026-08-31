@@ -19,7 +19,8 @@ class ContextService:
         5. Optional user request
         6. Existing analysis
         7. Optional workflow state
-        8. Retrieved RAG knowledge
+        8. Long-term memory
+        9. Retrieved RAG knowledge
         """
 
         context_parts = []
@@ -228,12 +229,74 @@ class ContextService:
                 )
 
                 context_parts.append(
-                    f"AGENT STATE:\n"
+                    "AGENT STATE:\n"
                     f"{state_text}"
                 )
 
         # --------------------------------
-        # 7. Retrieved RAG Knowledge
+        # 7. Long-Term Memory
+        # --------------------------------
+
+        if agent_state:
+
+            long_term_memory = (
+                agent_state.get(
+                    "long_term_memory",
+                    []
+                )
+            )
+
+            if long_term_memory:
+
+                memory_lines = []
+
+                for memory in long_term_memory:
+
+                    # Memory is normally stored
+                    # as JSON text in PostgreSQL.
+                    # Keep it intact so the LLM
+                    # can use the previous execution.
+
+                    if isinstance(
+                        memory,
+                        str
+                    ):
+
+                        memory_lines.append(
+                            f"- {memory}"
+                        )
+
+                    else:
+
+                        memory_lines.append(
+                            f"- {memory}"
+                        )
+
+                memory_text = "\n".join(
+                    memory_lines
+                )
+
+                context_parts.append(
+                    "LONG-TERM MEMORY:\n"
+                    f"{memory_text}"
+                )
+
+            else:
+
+                context_parts.append(
+                    "LONG-TERM MEMORY:\n"
+                    "No previous workflow memory found."
+                )
+
+        else:
+
+            context_parts.append(
+                "LONG-TERM MEMORY:\n"
+                "No previous workflow memory found."
+            )
+
+        # --------------------------------
+        # 8. Retrieved RAG Knowledge
         # --------------------------------
 
         if retrieved_context:
@@ -251,7 +314,7 @@ class ContextService:
             )
 
         # --------------------------------
-        # 8. Final Context
+        # 9. Final Context
         # --------------------------------
 
         final_context = "\n\n".join(

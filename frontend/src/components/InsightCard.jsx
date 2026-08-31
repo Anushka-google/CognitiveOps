@@ -4,40 +4,53 @@ function InsightCard({
   issue,
   severity,
   impact,
-  recommendation
+  recommendation,
+  evidence = []
 }) {
+  const normalizedSeverity = String(severity ?? "Low").trim().toLowerCase();
 
   let severityClass = "severity-badge";
 
-  if (severity === "High") {
+  if (normalizedSeverity === "high") {
     severityClass += " severity-high";
-  } else if (severity === "Medium") {
+  } else if (normalizedSeverity === "medium") {
     severityClass += " severity-medium";
   } else {
     severityClass += " severity-low";
   }
 
+  const evidenceItems = Array.isArray(evidence) ? evidence : [];
+
   return (
     <div className="insight-card">
-
       <h3>{issue}</h3>
 
       <span className={severityClass}>
-        {severity}
+        {severity || "Low"}
       </span>
 
       <p>
         <strong>Impact:</strong>
         {" "}
-        {impact}
+        {impact || "No impact details provided."}
       </p>
 
       <p>
         <strong>Recommendation:</strong>
         {" "}
-        {recommendation}
+        {recommendation || "No recommendation provided."}
       </p>
 
+      {evidenceItems.length > 0 && (
+        <div className="insight-evidence">
+          <strong>Evidence:</strong>
+          <ul>
+            {evidenceItems.map((item, index) => (
+              <li key={`${item}-${index}`}>{item}</li>
+            ))}
+          </ul>
+        </div>
+      )}
     </div>
   );
 }

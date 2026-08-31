@@ -1,138 +1,331 @@
 import logging
+import time
 
 
 logger = logging.getLogger(__name__)
 
 
 def planner_agent(state):
+
     """
     Creates a decomposed execution plan
     from the detected user intent and goal.
 
     Planner decides WHAT needs to be done.
 
-    It does not execute the tasks.
+    Planner does NOT execute external actions.
+
+    For high-impact actions, the planner adds
+    a proposal step to the plan.
+
+    The actual human approval gate is handled
+    by plan_executor after the required evidence
+    has been collected.
     """
 
     logger.info(
         "AGENT START | planner_agent"
     )
 
-    intent = state.get(
-        "intent"
-    )
+    start_time = time.perf_counter()
 
-    user_goal = state.get(
-        "user_goal"
-    )
+    try:
 
-    plan = []
+        intent = state.get(
+            "intent"
+        )
 
-    # =====================================================
-    # EXPLAIN DELAY
-    # =====================================================
+        user_goal = state.get(
+            "user_goal"
+        )
 
-    if intent == "explain_delay":
+        plan = []
 
-        plan = [
-            "find_workflow",
-            "find_delayed_tasks",
-            "retrieve_jira_evidence",
-            "retrieve_slack_evidence",
-            "compare_evidence",
-            "observe",
-            "identify_root_cause",
-            "generate_recommendation"
-        ]
+        # =====================================================
+        # HUMAN-IN-THE-LOOP DEFAULTS
+        # =====================================================
 
-    # =====================================================
-    # ANALYZE WORKFLOW
-    # =====================================================
+        proposed_action = {}
 
-    elif intent == "analyze_workflow":
+        approval_required = False
 
-        plan = [
-            "find_workflow",
-            "detect_patterns",
-            "find_delayed_tasks",
-            "retrieve_jira_evidence",
-            "retrieve_slack_evidence",
-            "compare_evidence",
-            "observe",
-            "identify_root_causes",
-            "generate_recommendations"
-        ]
+        approval_status = None
 
-    # =====================================================
-    # FIND BOTTLENECK
-    # =====================================================
+        approval_reason = None
 
-    elif intent == "find_bottleneck":
+        # =====================================================
+        # EXPLAIN DELAY
+        # =====================================================
 
-        plan = [
-            "find_workflow",
-            "find_delayed_tasks",
-            "detect_delays",
-            "retrieve_jira_evidence",
-            "retrieve_slack_evidence",
-            "compare_evidence",
-            "observe",
-            "identify_bottlenecks"
-        ]
+        if intent == "explain_delay":
 
-    # =====================================================
-    # RECOMMEND ACTION
-    # =====================================================
+            plan = [
+                "find_workflow",
+                "find_delayed_tasks",
+                "retrieve_jira_evidence",
+                "retrieve_slack_evidence",
+                "compare_evidence",
+                "observe",
+                "identify_root_cause",
+                "generate_recommendation"
+            ]
 
-    elif intent == "recommend_action":
+        # =====================================================
+        # ANALYZE WORKFLOW
+        # =====================================================
 
-        plan = [
-            "find_workflow",
-            "identify_problem",
-            "retrieve_jira_evidence",
-            "retrieve_slack_evidence",
-            "compare_evidence",
-            "observe",
-            "identify_root_cause",
-            "generate_recommendation"
-        ]
+        elif intent == "analyze_workflow":
 
-    # =====================================================
-    # RETRIEVE JIRA ISSUE
-    # =====================================================
+            plan = [
+                "find_workflow",
+                "detect_patterns",
+                "find_delayed_tasks",
+                "retrieve_jira_evidence",
+                "retrieve_slack_evidence",
+                "compare_evidence",
+                "observe",
+                "identify_root_causes",
+                "generate_recommendations"
+            ]
 
-    elif intent == "retrieve_jira_issue":
+        # =====================================================
+        # FIND BOTTLENECK
+        # =====================================================
 
-        plan = [
-            "extract_issue_key",
-            "retrieve_jira_issue",
-            "return_issue"
-        ]
+        elif intent == "find_bottleneck":
 
-    # =====================================================
-    # UNKNOWN INTENT
-    # =====================================================
+            plan = [
+                "find_workflow",
+                "find_delayed_tasks",
+                "detect_delays",
+                "retrieve_jira_evidence",
+                "retrieve_slack_evidence",
+                "compare_evidence",
+                "observe",
+                "identify_bottlenecks"
+            ]
 
-    else:
+        # =====================================================
+        # RECOMMEND ACTION
+        # =====================================================
 
-        plan = [
-            "understand_goal"
-        ]
+        elif intent == "recommend_action":
 
-    logger.info(
-        "PLAN CREATED | intent=%s | steps=%s",
-        intent,
-        len(plan)
-    )
+            plan = [
+                "find_workflow",
+                "identify_problem",
+                "retrieve_jira_evidence",
+                "retrieve_slack_evidence",
+                "compare_evidence",
+                "observe",
+                "identify_root_cause",
+                "generate_recommendation",
 
-    logger.info(
-        "TASK DECOMPOSITION | plan=%s",
-        plan
-    )
+                # =============================================
+                # HUMAN-IN-THE-LOOP STEP
+                # =============================================
 
-    return {
-        "user_goal": user_goal,
-        "intent": intent,
-        "plan": plan,
-        "current_step": 0
-    }
+                "propose_jira_change"
+            ]
+
+        # =====================================================
+        # RETRIEVE JIRA ISSUE
+        # =====================================================
+
+        elif intent == "retrieve_jira_issue":
+
+            plan = [
+                "extract_issue_key",
+                "retrieve_jira_issue",
+                "return_issue"
+            ]
+
+        # =====================================================
+        # UNKNOWN INTENT
+        # =====================================================
+
+        else:
+
+            plan = [
+                "understand_goal"
+            ]
+
+        # =====================================================
+        # Execution Time
+        # =====================================================
+
+        execution_time = (
+            time.perf_counter()
+            - start_time
+        )
+
+        # =====================================================
+        # Logging
+        # =====================================================
+
+        logger.info(
+            "PLAN CREATED | intent=%s | steps=%s",
+            intent,
+            len(plan)
+        )
+
+        logger.info(
+            "TASK DECOMPOSITION | plan=%s",
+            plan
+        )
+
+        logger.info(
+            "HUMAN-IN-THE-LOOP | "
+            "required=%s | "
+            "status=%s",
+            approval_required,
+            approval_status
+        )
+
+        # =====================================================
+        # Structured Agent Output
+        # =====================================================
+
+        agent_outputs = dict(
+            state.get(
+                "agent_outputs",
+                {}
+            )
+        )
+
+        agent_outputs[
+            "planner_agent"
+        ] = {
+
+            "agent": "planner_agent",
+
+            "status": "success",
+
+            "output": {
+
+                "intent": intent,
+
+                "plan": plan,
+
+                "steps": len(plan),
+
+                "proposed_action": (
+                    proposed_action
+                ),
+
+                "approval_required": (
+                    approval_required
+                ),
+
+                "approval_status": (
+                    approval_status
+                )
+            },
+
+            "execution_time": (
+                execution_time
+            ),
+
+            "error": None
+        }
+
+        logger.info(
+            "STRUCTURED OUTPUT | "
+            "agent=planner_agent | "
+            "status=success"
+        )
+
+        logger.info(
+            "AGENT END | planner_agent"
+        )
+
+        # =====================================================
+        # State Update
+        # =====================================================
+
+        return {
+
+            "user_goal": user_goal,
+
+            "intent": intent,
+
+            "plan": plan,
+
+            "current_step": 0,
+
+            "proposed_action": (
+                proposed_action
+            ),
+
+            "approval_required": (
+                approval_required
+            ),
+
+            "approval_status": (
+                approval_status
+            ),
+
+            "approval_reason": (
+                approval_reason
+            ),
+
+            "agent_outputs": (
+                agent_outputs
+            )
+        }
+
+    except Exception as e:
+
+        execution_time = (
+            time.perf_counter()
+            - start_time
+        )
+
+        logger.exception(
+            "AGENT FAILED | planner_agent | "
+            "execution_time=%.2fs",
+            execution_time
+        )
+
+        agent_outputs = dict(
+            state.get(
+                "agent_outputs",
+                {}
+            )
+        )
+
+        agent_outputs[
+            "planner_agent"
+        ] = {
+
+            "agent": "planner_agent",
+
+            "status": "failed",
+
+            "output": None,
+
+            "execution_time": (
+                execution_time
+            ),
+
+            "error": str(e)
+        }
+
+        return {
+
+            "agent_outputs": (
+                agent_outputs
+            ),
+
+            "errors": [
+                str(e)
+            ],
+
+            "execution_status": (
+                "failed"
+            ),
+
+            "execution_error": (
+                str(e)
+            )
+        }

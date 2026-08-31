@@ -60,17 +60,52 @@ def reasoning_agent(
         )
     )
 
+    # ==========================================
+    # Long-Term Memory
+    # ==========================================
+
+    long_term_memory = state.get(
+        "long_term_memory",
+        []
+    )
+
+    logger.info(
+        "LONG-TERM MEMORY | "
+        "reasoning_agent | count=%s",
+        len(long_term_memory)
+    )
+
     try:
 
         for insight in state["insights"]:
 
             try:
 
+                analysis_context = {
+
+                    **combined_evidence,
+
+                    "long_term_memory": (
+                        long_term_memory
+                    )
+                }
+
+                logger.info(
+                    "REASONING CONTEXT | "
+                    "long_term_memory=%s",
+                    len(
+                        analysis_context.get(
+                            "long_term_memory",
+                            []
+                        )
+                    )
+                )
+
                 updated_insight = (
                     gemini_service
                     .generate_insight_analysis(
                         insight,
-                        combined_evidence
+                        analysis_context
                     )
                 )
 
@@ -118,11 +153,55 @@ def reasoning_agent(
             len(updated_insights)
         )
 
-        return {
-            "insights": updated_insights
+        # ==========================================
+        # Structured Agent Output
+        # ==========================================
+
+        agent_outputs = dict(
+            state.get(
+                "agent_outputs",
+                {}
+            )
+        )
+
+        agent_outputs[
+            "reasoning_agent"
+        ] = {
+
+            "agent": "reasoning_agent",
+
+            "status": "success",
+
+            "output": {
+
+                "insights_count": (
+                    len(updated_insights)
+                ),
+
+                "gemini_used": True
+            },
+
+            "execution_time": (
+                execution_time
+            ),
+
+            "error": None
         }
 
-    except Exception:
+        logger.info(
+            "STRUCTURED OUTPUT | "
+            "agent=reasoning_agent | "
+            "status=success"
+        )
+
+        return {
+
+            "insights": updated_insights,
+
+            "agent_outputs": agent_outputs
+        }
+
+    except Exception as e:
 
         execution_time = (
             time.perf_counter()
@@ -135,4 +214,35 @@ def reasoning_agent(
             execution_time
         )
 
-        raise
+        agent_outputs = dict(
+            state.get(
+                "agent_outputs",
+                {}
+            )
+        )
+
+        agent_outputs[
+            "reasoning_agent"
+        ] = {
+
+            "agent": "reasoning_agent",
+
+            "status": "failed",
+
+            "output": None,
+
+            "execution_time": (
+                execution_time
+            ),
+
+            "error": str(e)
+        }
+
+        return {
+
+            "agent_outputs": agent_outputs,
+
+            "errors": [
+                str(e)
+            ]
+        }

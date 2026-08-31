@@ -10,6 +10,21 @@ logger = logging.getLogger(__name__)
 def recommendation_agent(
     state: AgentState
 ):
+    """
+    Processes generated recommendations
+    and returns a structured agent output.
+
+    Agent responsibilities:
+    - Process insights
+    - Mark high-priority recommendations
+    - Return predictable output structure
+
+    It does not:
+    - call external APIs
+    - call Gemini
+    - retrieve evidence
+    - modify workflow data
+    """
 
     logger.info(
         "AGENT START | recommendation_agent"
@@ -19,26 +34,71 @@ def recommendation_agent(
 
     try:
 
+        # ==========================================
+        # Read existing insights
+        # ==========================================
+
+        insights = state.get(
+            "insights",
+            []
+        )
+
         high_priority_count = 0
 
-        for insight in state["insights"]:
+        # ==========================================
+        # Process recommendations
+        # ==========================================
+
+        for insight in insights:
 
             if (
                 insight.severity == "High"
                 and insight.recommendation
             ):
 
-                insight.recommendation = (
-                    "[HIGH PRIORITY] "
-                    + insight.recommendation
-                )
+                # Avoid adding the prefix repeatedly
+                if not insight.recommendation.startswith(
+                    "[HIGH PRIORITY]"
+                ):
+
+                    insight.recommendation = (
+                        "[HIGH PRIORITY] "
+                        + insight.recommendation
+                    )
 
                 high_priority_count += 1
+
+        # ==========================================
+        # Execution time
+        # ==========================================
 
         execution_time = (
             time.perf_counter()
             - start_time
         )
+
+        # ==========================================
+        # Structured Agent Output
+        # ==========================================
+
+        recommendation_output = {
+
+            "status": "success",
+
+            "result_count": (
+                len(insights)
+            ),
+
+            "high_priority_count": (
+                high_priority_count
+            ),
+
+            "output": insights
+        }
+
+        # ==========================================
+        # Logging
+        # ==========================================
 
         logger.info(
             "AGENT END | recommendation_agent | "
@@ -48,11 +108,37 @@ def recommendation_agent(
             high_priority_count
         )
 
+        logger.info(
+            "STRUCTURED OUTPUT | "
+            "agent=recommendation_agent | "
+            "status=%s | "
+            "result_count=%s",
+            recommendation_output["status"],
+            recommendation_output["result_count"]
+        )
+
+        # ==========================================
+        # Return State Update
+        # ==========================================
+
         return {
-            "insights": state["insights"]
+
+            "insights": insights,
+
+            "agent_outputs": {
+
+                **state.get(
+                    "agent_outputs",
+                    {}
+                ),
+
+                "recommendation_agent": (
+                    recommendation_output
+                )
+            }
         }
 
-    except Exception:
+    except Exception as e:
 
         execution_time = (
             time.perf_counter()
@@ -65,4 +151,49 @@ def recommendation_agent(
             execution_time
         )
 
-        raise
+        # ==========================================
+        # Structured Error Output
+        # ==========================================
+
+        error_output = {
+
+            "status": "error",
+
+            "result_count": 0,
+
+            "high_priority_count": 0,
+
+            "output": [],
+
+            "error": str(e)
+        }
+
+        return {
+
+            "agent_outputs": {
+
+                **state.get(
+                    "agent_outputs",
+                    {}
+                ),
+
+                "recommendation_agent": (
+                    error_output
+                )
+            },
+
+            "errors": [
+
+                *state.get(
+                    "errors",
+                    []
+                ),
+
+                {
+                    "agent": (
+                        "recommendation_agent"
+                    ),
+                    "error": str(e)
+                }
+            ]
+        }

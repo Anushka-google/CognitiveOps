@@ -111,6 +111,105 @@ def _log_token_usage(response):
 
 
 # ==========================================
+# Helper: Detect Permanent Errors
+# ==========================================
+
+def _is_permanent_error(
+    error_text: str
+) -> bool:
+    """
+    Detect errors that will not be fixed
+    by retrying the same request.
+    """
+
+    return (
+        "api key" in error_text
+        or "authentication" in error_text
+        or "permission" in error_text
+        or "invalid argument" in error_text
+        or "invalid api key" in error_text
+        or "not found" in error_text
+    )
+
+
+# ==========================================
+# Helper: Detect Daily / Project Quota
+# ==========================================
+
+def _is_quota_exhausted(
+    error_text: str
+) -> bool:
+    """
+    Detect hard quota exhaustion.
+
+    Example:
+
+    GenerateRequestsPerDayPerProjectPerModel-FreeTier
+
+    This should NOT be retried because waiting
+    a few seconds will not restore a daily quota.
+    """
+
+    return (
+        "generate_requests_per_day" in error_text
+        or "perdayperproject" in error_text
+        or "daily quota" in error_text
+        or "quota exceeded for metric" in error_text
+        or "free_tier_requests" in error_text
+    )
+
+
+# ==========================================
+# Helper: Detect Temporary Rate Limit
+# ==========================================
+
+def _is_rate_limit_error(
+    error_text: str
+) -> bool:
+    """
+    Detect temporary rate-limit conditions.
+
+    These may succeed after waiting.
+    """
+
+    return (
+        "429" in error_text
+        or "too many requests" in error_text
+        or "rate limit" in error_text
+        or "ratelimit" in error_text
+    )
+
+
+# ==========================================
+# Helper: Detect Retryable Errors
+# ==========================================
+
+def _is_retryable_error(
+    error_text: str
+) -> bool:
+    """
+    Detect temporary infrastructure/network
+    failures that can reasonably be retried.
+    """
+
+    return (
+        "timeout" in error_text
+        or "timed out" in error_text
+        or "connection reset" in error_text
+        or "connection refused" in error_text
+        or "temporary failure" in error_text
+        or "temporarily unavailable" in error_text
+        or "internal server error" in error_text
+        or "service unavailable" in error_text
+        or "bad gateway" in error_text
+        or "gateway timeout" in error_text
+        or "503" in error_text
+        or "502" in error_text
+        or "500" in error_text
+    )
+
+
+# ==========================================
 # Helper: Gemini Request With Retry
 # ==========================================
 
@@ -126,6 +225,14 @@ def _generate_with_retry(
         start_time = time.perf_counter()
 
         try:
+
+            logger.info(
+                "LLM ATTEMPT | "
+                "attempt=%s/%s | model=%s",
+                attempt + 1,
+                LLM_MAX_RETRIES + 1,
+                GEMINI_MODEL
+            )
 
             response = (
                 client.models.generate_content(
@@ -181,52 +288,132 @@ def _generate_with_retry(
                 - start_time
             )
 
+            error_text = str(
+                e
+            ).lower()
+
             logger.error(
-                "LLM ERROR | attempt=%s "
+                "LLM ERROR | "
+                "attempt=%s | "
                 "latency=%.2f seconds | %s",
                 attempt + 1,
                 latency,
                 e
             )
 
-            error_text = str(e).lower()
+            # ==========================================
+            # 1. HARD QUOTA EXHAUSTION
+            # ==========================================
+            #
+            # Example:
+            #
+            # GenerateRequestsPerDayPerProjectPerModel-FreeTier
+            #
+            # Do NOT retry.
+            # ==========================================
 
-            # ------------------------------
-            # Do not retry permanent errors
-            # ------------------------------
-
-            permanent_error = (
-                "api key" in error_text
-                or "authentication" in error_text
-                or "permission" in error_text
-                or "invalid argument" in error_text
-                or "not found" in error_text
-            )
-
-            if permanent_error:
+            if _is_quota_exhausted(
+                error_text
+            ):
 
                 logger.error(
-                    "LLM PERMANENT ERROR | "
-                    "Retry will not be attempted."
+                    "LLM QUOTA EXHAUSTED | "
+                    "model=%s | "
+                    "No retry will be attempted.",
+                    GEMINI_MODEL
                 )
 
                 raise
 
-            # ------------------------------
-            # Maximum retries reached
-            # ------------------------------
+            # ==========================================
+            # 2. PERMANENT ERROR
+            # ==========================================
+
+            if _is_permanent_error(
+                error_text
+            ):
+
+                logger.error(
+                    "LLM PERMANENT ERROR | "
+                    "model=%s | "
+                    "No retry will be attempted.",
+                    GEMINI_MODEL
+                )
+
+                raise
+
+            # ==========================================
+            # 3. MAXIMUM RETRIES
+            # ==========================================
 
             if attempt >= LLM_MAX_RETRIES:
 
                 logger.error(
-                    "LLM FAILED | Maximum retries reached."
+                    "LLM FAILED | "
+                    "Maximum retries reached | "
+                    "attempts=%s",
+                    LLM_MAX_RETRIES + 1
                 )
 
                 raise
 
-            # ------------------------------
-            # Exponential Backoff
-            # ------------------------------
+            # ==========================================
+            # 4. DETERMINE WHETHER RETRY IS USEFUL
+            # ==========================================
+
+            rate_limit_error = (
+                _is_rate_limit_error(
+                    error_text
+                )
+            )
+
+            retryable_error = (
+                _is_retryable_error(
+                    error_text
+                )
+            )
+
+            # ------------------------------------------
+            # Retry temporary errors
+            # ------------------------------------------
+
+            if (
+                rate_limit_error
+                or retryable_error
+            ):
+
+                backoff_time = (
+                    LLM_INITIAL_BACKOFF
+                    * (2 ** attempt)
+                )
+
+                logger.warning(
+                    "LLM RETRY | "
+                    "retry=%s | "
+                    "reason=%s | "
+                    "waiting=%.2f seconds",
+                    attempt + 1,
+                    (
+                        "rate_limit"
+                        if rate_limit_error
+                        else "transient_error"
+                    ),
+                    backoff_time
+                )
+
+                time.sleep(
+                    backoff_time
+                )
+
+                continue
+
+            # ==========================================
+            # 5. UNKNOWN ERROR
+            # ==========================================
+            #
+            # Unknown errors are treated as retryable
+            # because they may be temporary.
+            # ==========================================
 
             backoff_time = (
                 LLM_INITIAL_BACKOFF
@@ -234,7 +421,9 @@ def _generate_with_retry(
             )
 
             logger.warning(
-                "LLM RETRY | retry=%s "
+                "LLM RETRY | "
+                "retry=%s | "
+                "reason=unknown_error | "
                 "waiting=%.2f seconds",
                 attempt + 1,
                 backoff_time

@@ -1,4 +1,5 @@
 import logging
+import time
 
 
 logger = logging.getLogger(__name__)
@@ -6,190 +7,389 @@ logger = logging.getLogger(__name__)
 
 def observation_agent(state):
     """
-    Observes the results produced by previous
+    Observes evidence produced by previous
     tool/action execution.
 
-    Observation decides whether the collected
-    evidence is sufficient for the next reasoning step.
+    Determines whether the evidence contains
+    the information required for reliable reasoning.
 
     It does not:
     - execute tools
     - call external APIs
     - call Gemini
     - generate recommendations
-
-    It only observes the current state.
     """
 
     logger.info(
         "AGENT START | observation_agent"
     )
 
-    # ==========================================
-    # 1. Read evidence from state
-    # ==========================================
+    start_time = time.perf_counter()
 
-    jira_evidence = state.get(
-        "jira_evidence",
-        []
-    )
+    try:
 
-    slack_evidence = state.get(
-        "slack_evidence",
-        []
-    )
+        # ==========================================
+        # 1. Read evidence from state
+        # ==========================================
 
-    combined_evidence = state.get(
-        "combined_evidence",
-        {}
-    )
-
-    # ==========================================
-    # 2. Fallback to combined evidence
-    # ==========================================
-
-    if not jira_evidence:
-
-        jira_evidence = combined_evidence.get(
-            "jira",
+        jira_evidence = state.get(
+            "jira_evidence",
             []
         )
 
-    if not slack_evidence:
-
-        slack_evidence = combined_evidence.get(
-            "slack",
+        slack_evidence = state.get(
+            "slack_evidence",
             []
         )
 
-    # ==========================================
-    # 3. Count observed evidence
-    # ==========================================
-
-    jira_count = len(
-        jira_evidence
-    )
-
-    slack_count = len(
-        slack_evidence
-    )
-
-    logger.info(
-        "OBSERVATION INPUT | "
-        "jira=%s | slack=%s",
-        jira_count,
-        slack_count
-    )
-
-    # ==========================================
-    # 4. Identify available sources
-    # ==========================================
-
-    sources = []
-
-    if jira_count > 0:
-
-        sources.append(
-            "jira"
+        combined_evidence = state.get(
+            "combined_evidence",
+            {}
         )
 
-    if slack_count > 0:
+        # ==========================================
+        # 2. Fallback to combined evidence
+        # ==========================================
 
-        sources.append(
-            "slack"
+        if not jira_evidence:
+
+            jira_evidence = combined_evidence.get(
+                "jira",
+                []
+            )
+
+        if not slack_evidence:
+
+            slack_evidence = combined_evidence.get(
+                "slack",
+                []
+            )
+
+        # ==========================================
+        # 3. Count observed evidence
+        # ==========================================
+
+        jira_count = len(
+            jira_evidence
         )
 
-    # ==========================================
-    # 5. Determine sufficiency
-    # ==========================================
-
-    sufficient = bool(
-        jira_count > 0
-        or slack_count > 0
-    )
-
-    # ==========================================
-    # 6. Identify missing sources
-    # ==========================================
-
-    missing = []
-
-    if jira_count == 0:
-
-        missing.append(
-            "jira"
+        slack_count = len(
+            slack_evidence
         )
 
-    if slack_count == 0:
-
-        missing.append(
-            "slack"
+        logger.info(
+            "OBSERVATION INPUT | "
+            "jira=%s | slack=%s",
+            jira_count,
+            slack_count
         )
 
-    # ==========================================
-    # 7. Build observation result
-    # ==========================================
+        # ==========================================
+        # 4. Identify available sources
+        # ==========================================
 
-    if sufficient:
+        sources = []
 
-        status = "sufficient"
+        if jira_count > 0:
 
-        reason = (
-            "Operational evidence is available "
-            "for reasoning."
+            sources.append(
+                "jira"
+            )
+
+        if slack_count > 0:
+
+            sources.append(
+                "slack"
+            )
+
+        # ==========================================
+        # 5. Evidence Quality Check
+        # ==========================================
+
+        jira_ticket = (
+            jira_count > 0
         )
 
-    else:
-
-        status = "insufficient"
-
-        reason = (
-            "No operational evidence was found "
-            "from Jira or Slack."
+        jira_status = any(
+            isinstance(item, dict)
+            and (
+                item.get("status")
+                or item.get("issue_status")
+                or item.get("state")
+            )
+            for item in jira_evidence
         )
 
-    observation = {
+        jira_timeline = any(
+            isinstance(item, dict)
+            and (
+                item.get("timestamp")
+                or item.get("created")
+                or item.get("updated")
+                or item.get("timeline")
+                or item.get("days_waiting")
+            )
+            for item in jira_evidence
+        )
 
-        "status": status,
+        slack_message = (
+            slack_count > 0
+        )
 
-        "sufficient": sufficient,
+        # ==========================================
+        # 6. Identify Missing Information
+        # ==========================================
 
-        "reason": reason,
+        missing_information = []
 
-        "sources": sources,
+        if not jira_ticket:
 
-        "missing": missing,
+            missing_information.append(
+                "affected ticket"
+            )
 
-        "jira_count": jira_count,
+        if not jira_status:
 
-        "slack_count": slack_count
-    }
+            missing_information.append(
+                "ticket status"
+            )
 
-    # ==========================================
-    # 8. Log observation
-    # ==========================================
+        if not jira_timeline:
 
-    logger.info(
-        "OBSERVATION RESULT | "
-        "status=%s | "
-        "sufficient=%s | "
-        "sources=%s | "
-        "missing=%s",
-        status,
-        sufficient,
-        sources,
-        missing
-    )
+            missing_information.append(
+                "timeline"
+            )
 
-    logger.info(
-        "AGENT END | observation_agent"
-    )
+        if not slack_message:
 
-    # ==========================================
-    # 9. Return state update
-    # ==========================================
+            logger.info(
+                "OBSERVATION | "
+                "Slack evidence unavailable"
+            )
 
-    return {
-        "observation": observation,
-        "observation_status": status
-    }
+        # ==========================================
+        # 7. Determine Sufficiency
+        # ==========================================
+
+        sufficient = (
+            jira_ticket
+            and jira_status
+            and jira_timeline
+        )
+
+        needs_correction = (
+            not sufficient
+        )
+
+        if sufficient:
+
+            status = "sufficient"
+
+            reason = (
+                "Required operational evidence "
+                "is available for reasoning."
+            )
+
+        else:
+
+            status = "insufficient"
+
+            reason = (
+                "Required evidence is missing "
+                "for reliable reasoning."
+            )
+
+        # ==========================================
+        # 8. Build Observation Result
+        # ==========================================
+
+        observation = {
+
+            "status": status,
+
+            "sufficient": sufficient,
+
+            "needs_correction": (
+                needs_correction
+            ),
+
+            "reason": reason,
+
+            "sources": sources,
+
+            "missing_information": (
+                missing_information
+            ),
+
+            "jira_count": jira_count,
+
+            "slack_count": slack_count,
+
+            "evidence_quality": {
+
+                "jira_ticket": jira_ticket,
+
+                "jira_status": jira_status,
+
+                "jira_timeline": jira_timeline,
+
+                "slack_message": slack_message
+            }
+        }
+
+        # ==========================================
+        # 9. Logging
+        # ==========================================
+
+        logger.info(
+            "OBSERVATION RESULT | "
+            "status=%s | "
+            "sufficient=%s | "
+            "needs_correction=%s",
+            status,
+            sufficient,
+            needs_correction
+        )
+
+        logger.info(
+            "EVIDENCE QUALITY | "
+            "jira_ticket=%s | "
+            "jira_status=%s | "
+            "jira_timeline=%s | "
+            "slack_message=%s",
+            jira_ticket,
+            jira_status,
+            jira_timeline,
+            slack_message
+        )
+
+        logger.info(
+            "SELF-CORRECTION CHECK | "
+            "needed=%s | "
+            "missing=%s",
+            needs_correction,
+            missing_information
+        )
+
+        # ==========================================
+        # Structured Agent Output
+        # ==========================================
+
+        execution_time = (
+            time.perf_counter()
+            - start_time
+        )
+
+        agent_outputs = dict(
+            state.get(
+                "agent_outputs",
+                {}
+            )
+        )
+
+        agent_outputs[
+            "observation_agent"
+        ] = {
+
+            "agent": "observation_agent",
+
+            "status": "success",
+
+            "output": {
+
+                "status": status,
+
+                "sufficient": sufficient,
+
+                "needs_correction": (
+                    needs_correction
+                ),
+
+                "missing_information": (
+                    missing_information
+                ),
+
+                "jira_count": jira_count,
+
+                "slack_count": slack_count
+            },
+
+            "execution_time": (
+                execution_time
+            ),
+
+            "error": None
+        }
+
+        logger.info(
+            "STRUCTURED OUTPUT | "
+            "agent=observation_agent | "
+            "status=success"
+        )
+
+        logger.info(
+            "AGENT END | observation_agent"
+        )
+
+        # ==========================================
+        # 10. Return State Update
+        # ==========================================
+
+        return {
+
+            "observation": observation,
+
+            "observation_status": status,
+
+            "self_correction_required": (
+                needs_correction
+            ),
+
+            "agent_outputs": agent_outputs
+        }
+
+    except Exception as e:
+
+        execution_time = (
+            time.perf_counter()
+            - start_time
+        )
+
+        logger.exception(
+            "AGENT FAILED | observation_agent | "
+            "execution_time=%.2fs",
+            execution_time
+        )
+
+        agent_outputs = dict(
+            state.get(
+                "agent_outputs",
+                {}
+            )
+        )
+
+        agent_outputs[
+            "observation_agent"
+        ] = {
+
+            "agent": "observation_agent",
+
+            "status": "failed",
+
+            "output": None,
+
+            "execution_time": (
+                execution_time
+            ),
+
+            "error": str(e)
+        }
+
+        return {
+
+            "agent_outputs": agent_outputs,
+
+            "errors": [
+                str(e)
+            ]
+        }

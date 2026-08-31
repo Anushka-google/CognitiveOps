@@ -55,3 +55,8 @@ class WorkflowExecution(Base):
         String,
         nullable=True
     )
+
+    memory = Column(
+        String,
+        nullable=True
+    )

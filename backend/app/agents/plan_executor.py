@@ -1,4 +1,5 @@
 import logging
+import time
 
 from app.agents.pattern_agent import (
     pattern_agent
@@ -12,121 +13,290 @@ from app.agents.recommendation_agent import (
     recommendation_agent
 )
 
-from app.agents.observation_agent import (
-    observation_agent
-)
-
-from app.services.slack_service import (
-    SlackService
+from app.agents.state import (
+    AgentState
 )
 
 
 logger = logging.getLogger(__name__)
 
 
-def observe_tool_result(
-    state,
-    tool_name,
-    result_count,
-    sufficient,
-    details=None
+# =====================================================
+# Plan Executor
+# =====================================================
+
+def plan_executor(
+    state: AgentState
 ):
-    """
-    Records the result of an executed tool/agent.
-
-    Observation answers:
-        What happened?
-        How much result was produced?
-        Is the result currently sufficient?
-    """
-
-    observation = {
-        "tool": tool_name,
-        "result_count": result_count,
-        "sufficient": sufficient
-    }
-
-    if details:
-        observation["details"] = details
-
-    observations = state.setdefault(
-        "observations",
-        []
-    )
-
-    observations.append(
-        observation
-    )
 
     logger.info(
-        "OBSERVATION | "
-        "tool=%s | "
-        "result_count=%s | "
-        "sufficient=%s",
-        tool_name,
-        result_count,
-        sufficient
+        "AGENT START | plan_executor"
     )
 
-    return observation
+    start_time = time.perf_counter()
 
+    try:
 
-def plan_executor(state):
-    """
-    Executes the plan created by planner_agent.
+        # =================================================
+        # Read plan state
+        # =================================================
 
-    Planner decides:
-        WHAT should be done.
-
-    Executor decides:
-        WHICH step to execute next
-        and passes the resulting state forward.
-
-    Observation records:
-        WHAT happened after each execution.
-
-    Observation Agent decides:
-        WHETHER the collected evidence
-        is sufficient for reasoning.
-    """
-
-    logger.info(
-        "PLAN EXECUTOR START"
-    )
-
-    plan = state.get(
-        "plan",
-        []
-    )
-
-    current_step = state.get(
-        "current_step",
-        0
-    )
-
-    state.setdefault(
-        "observations",
-        []
-    )
-
-    # --------------------------------
-    # Validate plan
-    # --------------------------------
-
-    if not plan:
-
-        logger.warning(
-            "PLAN EXECUTOR | "
-            "No plan available"
+        plan = state.get(
+            "plan",
+            []
         )
 
-        return state
+        current_step = state.get(
+            "current_step",
+            0
+        )
 
-    # --------------------------------
-    # Execute plan
-    # --------------------------------
+        iteration_count = state.get(
+            "iteration_count",
+            0
+        )
 
-    while current_step < len(plan):
+        # =================================================
+        # IMPORTANT
+        #
+        # Allow the complete plan to execute.
+        #
+        # Previous value was 5, but a HITL plan can
+        # contain more than 5 steps.
+        # =================================================
+
+        max_iterations = max(
+            5,
+            len(plan)
+        )
+
+        # =================================================
+        # State Containers
+        # =================================================
+
+        tool_results = dict(
+            state.get(
+                "tool_results",
+                {}
+            )
+        )
+
+        evidence = dict(
+            state.get(
+                "evidence",
+                {}
+            )
+        )
+
+        agent_outputs = dict(
+            state.get(
+                "agent_outputs",
+                {}
+            )
+        )
+
+        observations = list(
+            state.get(
+                "observations",
+                []
+            )
+        )
+
+        errors = list(
+            state.get(
+                "errors",
+                []
+            )
+        )
+
+        # =================================================
+        # HITL State
+        # =================================================
+
+        proposed_action = dict(
+            state.get(
+                "proposed_action",
+                {}
+            )
+        )
+
+        approval_required = state.get(
+            "approval_required",
+            False
+        )
+
+        approval_status = state.get(
+            "approval_status",
+            None
+        )
+
+        logger.info(
+            "HUMAN-IN-THE-LOOP | "
+            "required=%s | "
+            "status=%s | "
+            "action=%s",
+            approval_required,
+            approval_status,
+            proposed_action.get(
+                "action_type"
+            )
+        )
+
+        # =================================================
+        # Validate plan
+        # =================================================
+
+        if not plan:
+
+            logger.warning(
+                "PLAN EXECUTOR | "
+                "NO PLAN AVAILABLE"
+            )
+
+            return {
+
+                "execution_status": (
+                    "terminated"
+                ),
+
+                "termination_reason": (
+                    "empty_plan"
+                ),
+
+                "goal_completed": False
+            }
+
+        # =================================================
+        # Iteration Safety
+        # =================================================
+
+        if iteration_count >= max_iterations:
+
+            logger.warning(
+                "TERMINATION | "
+                "reason=max_iterations_reached | "
+                "iteration=%s | "
+                "max_iterations=%s",
+                iteration_count,
+                max_iterations
+            )
+
+            return {
+
+                "current_step": (
+                    current_step
+                ),
+
+                "execution_status": (
+                    "terminated"
+                ),
+
+                "termination_reason": (
+                    "max_iterations_reached"
+                ),
+
+                "goal_completed": False,
+
+                "iteration_count": (
+                    iteration_count
+                ),
+
+                "tool_results": (
+                    tool_results
+                ),
+
+                "evidence": (
+                    evidence
+                ),
+
+                "agent_outputs": (
+                    agent_outputs
+                ),
+
+                "observations": (
+                    observations
+                ),
+
+                "errors": (
+                    errors
+                )
+            }
+
+        iteration_count += 1
+
+        logger.info(
+            "ITERATION | current=%s | max=%s",
+            iteration_count,
+            max_iterations
+        )
+
+        # =================================================
+        # Plan Completed
+        # =================================================
+
+        if current_step >= len(plan):
+
+            logger.info(
+                "PLAN EXECUTOR | "
+                "ALL PLAN STEPS COMPLETED"
+            )
+
+            return {
+
+                "current_step": (
+                    current_step
+                ),
+
+                "execution_status": (
+                    "completed"
+                ),
+
+                "goal_completed": True,
+
+                "termination_reason": (
+                    "plan_completed"
+                ),
+
+                "iteration_count": (
+                    iteration_count
+                ),
+
+                "tool_results": (
+                    tool_results
+                ),
+
+                "evidence": (
+                    evidence
+                ),
+
+                "agent_outputs": (
+                    agent_outputs
+                ),
+
+                "observations": (
+                    observations
+                ),
+
+                "errors": (
+                    errors
+                ),
+
+                "proposed_action": (
+                    proposed_action
+                ),
+
+                "approval_required": (
+                    approval_required
+                ),
+
+                "approval_status": (
+                    approval_status
+                )
+            }
+
+        # =================================================
+        # Current Step
+        # =================================================
 
         step = plan[current_step]
 
@@ -137,916 +307,935 @@ def plan_executor(state):
             current_step
         )
 
-        try:
+        # =================================================
+        # HIGH-IMPACT JIRA PROPOSAL
+        #
+        # This is the HUMAN-IN-THE-LOOP boundary.
+        #
+        # IMPORTANT:
+        # No Jira mutation happens here.
+        # =================================================
 
-            # =========================================
-            # FIND WORKFLOW
-            # =========================================
+        if step == "propose_jira_change":
 
-            if step == "find_workflow":
+            jira_evidence = state.get(
+                "jira_evidence",
+                []
+            )
 
-                logger.info(
-                    "EXECUTING | find_workflow"
-                )
+            issue_key = state.get(
+                "issue_key"
+            )
 
-                workflows = state.get(
-                    "workflows",
-                    []
-                )
+            # -------------------------------------------------
+            # Try to obtain issue key from Jira evidence
+            # -------------------------------------------------
 
-                sufficient = (
-                    len(workflows) > 0
-                )
+            if not issue_key:
 
-                if not sufficient:
+                for item in jira_evidence:
 
-                    logger.warning(
-                        "WORKFLOW NOT FOUND"
-                    )
+                    if isinstance(
+                        item,
+                        dict
+                    ):
 
-                    state[
-                        "execution_status"
-                    ] = "workflow_not_found"
+                        issue_key = (
+                            item.get(
+                                "ticket_id"
+                            )
+                        )
 
-                    observe_tool_result(
-                        state,
-                        "find_workflow",
-                        len(workflows),
-                        False
-                    )
+                    else:
 
-                    break
-
-                observe_tool_result(
-                    state,
-                    "find_workflow",
-                    len(workflows),
-                    True
-                )
-
-            # =========================================
-            # FIND DELAYED TASKS
-            # =========================================
-
-            elif step == "find_delayed_tasks":
-
-                logger.info(
-                    "EXECUTING | find_delayed_tasks"
-                )
-
-                workflows = state.get(
-                    "workflows",
-                    []
-                )
-
-                delayed_workflows = [
-                    workflow
-                    for workflow in workflows
-                    if getattr(
-                        workflow,
-                        "days_waiting",
-                        0
-                    ) > 0
-                ]
-
-                state[
-                    "delayed_workflows"
-                ] = delayed_workflows
-
-                logger.info(
-                    "DELAYED WORKFLOWS FOUND | count=%s",
-                    len(delayed_workflows)
-                )
-
-                observe_tool_result(
-                    state,
-                    "find_delayed_tasks",
-                    len(delayed_workflows),
-                    len(delayed_workflows) > 0
-                )
-
-            # =========================================
-            # RETRIEVE JIRA EVIDENCE
-            # =========================================
-
-            elif step == "retrieve_jira_evidence":
-
-                logger.info(
-                    "EXECUTING | retrieve_jira_evidence"
-                )
-
-                delayed_workflows = state.get(
-                    "delayed_workflows",
-                    state.get(
-                        "workflows",
-                        []
-                    )
-                )
-
-                jira_evidence = []
-
-                for workflow in delayed_workflows:
-
-                    jira_evidence.append({
-                        "ticket_id": getattr(
-                            workflow,
+                        issue_key = getattr(
+                            item,
                             "ticket_id",
                             None
-                        ),
-                        "title": getattr(
-                            workflow,
-                            "title",
-                            None
-                        ),
-                        "status": getattr(
-                            workflow,
-                            "status",
-                            None
-                        ),
-                        "priority": getattr(
-                            workflow,
-                            "priority",
-                            None
-                        ),
-                        "assignee": getattr(
-                            workflow,
-                            "assignee",
-                            None
-                        ),
-                        "due_date": getattr(
-                            workflow,
-                            "due_date",
-                            None
-                        ),
-                        "days_waiting": getattr(
-                            workflow,
-                            "days_waiting",
-                            0
-                        )
-                    })
-
-                state[
-                    "jira_evidence"
-                ] = jira_evidence
-
-                logger.info(
-                    "JIRA EVIDENCE RETRIEVED | count=%s",
-                    len(jira_evidence)
-                )
-
-                observe_tool_result(
-                    state,
-                    "retrieve_jira_evidence",
-                    len(jira_evidence),
-                    len(jira_evidence) > 0
-                )
-
-            # =========================================
-            # RETRIEVE SLACK EVIDENCE
-            # =========================================
-
-            elif step == "retrieve_slack_evidence":
-
-                logger.info(
-                    "EXECUTING | retrieve_slack_evidence"
-                )
-
-                slack_service = (
-                    SlackService()
-                )
-
-                slack_evidence = []
-
-                delayed_workflows = state.get(
-                    "delayed_workflows",
-                    state.get(
-                        "workflows",
-                        []
-                    )
-                )
-
-                for workflow in delayed_workflows:
-
-                    ticket_id = getattr(
-                        workflow,
-                        "ticket_id",
-                        None
-                    )
-
-                    if not ticket_id:
-                        continue
-
-                    try:
-
-                        evidence = (
-                            slack_service
-                            .get_ticket_evidence(
-                                ticket_id
-                            )
                         )
 
-                        if evidence:
+                    if issue_key:
 
-                            slack_evidence.extend(
-                                evidence
-                            )
+                        break
 
-                    except Exception as e:
+            # -------------------------------------------------
+            # No issue → cannot propose action
+            # -------------------------------------------------
 
-                        logger.error(
-                            "SLACK EVIDENCE ERROR | "
-                            "ticket=%s | error=%s",
-                            ticket_id,
-                            e
-                        )
+            if not issue_key:
 
-                state[
-                    "slack_evidence"
-                ] = slack_evidence
-
-                logger.info(
-                    "SLACK EVIDENCE RETRIEVED | count=%s",
-                    len(slack_evidence)
+                logger.warning(
+                    "HITL PROPOSAL FAILED | "
+                    "No Jira issue key available"
                 )
 
-                observe_tool_result(
-                    state,
-                    "retrieve_slack_evidence",
-                    len(slack_evidence),
-                    len(slack_evidence) > 0
-                )
+                errors.append(
+                    {
+                        "step": step,
 
-            # =========================================
-            # COMPARE / COMBINE EVIDENCE
-            # =========================================
-
-            elif step == "compare_evidence":
-
-                logger.info(
-                    "EXECUTING | compare_evidence"
-                )
-
-                jira_evidence = state.get(
-                    "jira_evidence",
-                    []
-                )
-
-                slack_evidence = state.get(
-                    "slack_evidence",
-                    []
-                )
-
-                combined_evidence = {
-                    "jira": jira_evidence,
-                    "slack": slack_evidence
-                }
-
-                state[
-                    "combined_evidence"
-                ] = combined_evidence
-
-                logger.info(
-                    "EVIDENCE COMBINED | "
-                    "jira=%s | slack=%s",
-                    len(jira_evidence),
-                    len(slack_evidence)
-                )
-
-                observe_tool_result(
-                    state,
-                    "compare_evidence",
-                    (
-                        len(jira_evidence)
-                        + len(slack_evidence)
-                    ),
-                    (
-                        len(jira_evidence) > 0
-                        or len(slack_evidence) > 0
-                    ),
-                    details={
-                        "jira_count": len(
-                            jira_evidence
-                        ),
-                        "slack_count": len(
-                            slack_evidence
+                        "error": (
+                            "No Jira issue key "
+                            "available for approval."
                         )
                     }
                 )
 
-            # =========================================
-            # OBSERVATION AGENT
-            # =========================================
+                return {
 
-            elif step == "observe":
+                    "current_step": (
+                        current_step
+                    ),
 
-                logger.info(
-                    "EXECUTING | observe"
-                )
+                    "execution_status": (
+                        "failed"
+                    ),
 
-                observation_result = (
-                    observation_agent(
-                        state
+                    "execution_error": (
+                        "No Jira issue key available."
+                    ),
+
+                    "termination_reason": (
+                        "missing_issue_key"
+                    ),
+
+                    "goal_completed": False,
+
+                    "iteration_count": (
+                        iteration_count
+                    ),
+
+                    "errors": errors
+                }
+
+            # -------------------------------------------------
+            # Store issue key
+            # -------------------------------------------------
+
+            proposed_action = {
+
+                "action_type": (
+                    "jira_update_priority"
+                ),
+
+                "target": issue_key,
+
+                "field": "priority",
+
+                "new_value": "Highest",
+
+                "description": (
+                    f"Update Jira issue "
+                    f"{issue_key} priority to "
+                    f"Highest."
+                ),
+
+                "impact_level": "high",
+
+                "jira_evidence_count": (
+                    len(jira_evidence)
+                ),
+
+                "requires_human_approval": True
+            }
+
+            approval_required = True
+
+            approval_status = "pending"
+
+            approval_reason = (
+                "Changing Jira priority is an "
+                "operational action and therefore "
+                "requires human approval before "
+                "the Jira API is called."
+            )
+
+            logger.warning(
+                "HUMAN-IN-THE-LOOP | "
+                "HIGH-IMPACT ACTION PROPOSED | "
+                "action=jira_update_priority | "
+                "issue=%s | "
+                "new_priority=Highest",
+                issue_key
+            )
+
+            agent_outputs[
+                "plan_executor"
+            ] = {
+
+                "agent": (
+                    "plan_executor"
+                ),
+
+                "status": (
+                    "awaiting_approval"
+                ),
+
+                "output": {
+
+                    "step": step,
+
+                    "proposed_action": (
+                        proposed_action
+                    ),
+
+                    "approval_required": True,
+
+                    "approval_status": (
+                        "pending"
                     )
-                )
+                },
 
-                state.update(
-                    observation_result
-                )
+                "execution_time": (
+                    time.perf_counter()
+                    - start_time
+                ),
 
-                observation = state.get(
-                    "observation",
-                    {}
-                )
+                "error": None
+            }
 
-                logger.info(
-                    "OBSERVATION COMPLETE | "
-                    "status=%s | "
-                    "sufficient=%s",
-                    observation.get(
-                        "status"
+            observations.append(
+                {
+                    "step": step,
+
+                    "status": (
+                        "awaiting_approval"
                     ),
-                    observation.get(
-                        "sufficient"
+
+                    "result_count": 1,
+
+                    "sufficient": False
+                }
+            )
+
+            # =================================================
+            # STOP HERE
+            #
+            # NO TOOL EXECUTION
+            # =================================================
+
+            return {
+
+                "current_step": (
+                    current_step
+                ),
+
+                "iteration_count": (
+                    iteration_count
+                ),
+
+                "last_step": step,
+
+                "step_repeat_count": (
+                    state.get(
+                        "step_repeat_count",
+                        0
                     )
+                ),
+
+                "proposed_action": (
+                    proposed_action
+                ),
+
+                "approval_required": True,
+
+                "approval_status": (
+                    approval_status
+                ),
+
+                "approval_reason": (
+                    approval_reason
+                ),
+
+                "execution_status": (
+                    "awaiting_human_approval"
+                ),
+
+                "termination_reason": (
+                    "human_approval_required"
+                ),
+
+                "goal_completed": False,
+
+                "tool_results": (
+                    tool_results
+                ),
+
+                "evidence": (
+                    evidence
+                ),
+
+                "agent_outputs": (
+                    agent_outputs
+                ),
+
+                "observations": (
+                    observations
+                ),
+
+                "errors": (
+                    errors
                 )
+            }
 
-                observe_tool_result(
-                    state,
-                    "observation_agent",
-                    1,
-                    bool(
-                        observation.get(
-                            "sufficient",
-                            False
-                        )
-                    ),
-                    details=observation
+        # =================================================
+        # Execute normal steps
+        # =================================================
+
+        result = None
+
+        sufficient = False
+
+        # =================================================
+        # FIND WORKFLOW
+        # =================================================
+
+        if step == "find_workflow":
+
+            result = state.get(
+                "workflows",
+                []
+            )
+
+            tool_results[
+                "find_workflow"
+            ] = result
+
+        # =================================================
+        # FIND DELAYED TASKS
+        # =================================================
+
+        elif step == "find_delayed_tasks":
+
+            workflows = state.get(
+                "workflows",
+                []
+            )
+
+            delayed_workflows = [
+
+                workflow
+
+                for workflow in workflows
+
+                if getattr(
+                    workflow,
+                    "days_waiting",
+                    0
+                ) > 0
+            ]
+
+            state[
+                "delayed_workflows"
+            ] = delayed_workflows
+
+            result = delayed_workflows
+
+            tool_results[
+                "find_delayed_tasks"
+            ] = result
+
+            logger.info(
+                "DELAYED WORKFLOWS FOUND | "
+                "count=%s",
+                len(
+                    delayed_workflows
                 )
+            )
 
-            # =========================================
-            # ANALYZE DELAY
-            # =========================================
+        # =================================================
+        # RETRIEVE JIRA EVIDENCE
+        # =================================================
 
-            elif step == "analyze_delay":
+        elif step == "retrieve_jira_evidence":
 
-                logger.info(
-                    "EXECUTING | analyze_delay"
-                )
+            result = state.get(
+                "jira_evidence",
+                []
+            )
 
-                result = pattern_agent(
-                    state
-                )
+            evidence[
+                "jira"
+            ] = result
 
-                state.update(
-                    result
-                )
+            # -------------------------------------------------
+            # Extract issue key when possible
+            # -------------------------------------------------
 
-                observe_tool_result(
-                    state,
-                    "analyze_delay",
-                    len(
-                        result.get(
-                            "insights",
-                            []
-                        )
-                    ),
-                    len(
-                        result.get(
-                            "insights",
-                            []
-                        )
-                    ) > 0
-                )
-
-            # =========================================
-            # ANALYZE WORKFLOW
-            # =========================================
-
-            elif step == "analyze_workflow":
-
-                logger.info(
-                    "EXECUTING | analyze_workflow"
-                )
-
-                result = pattern_agent(
-                    state
-                )
-
-                state.update(
-                    result
-                )
-
-                observe_tool_result(
-                    state,
-                    "analyze_workflow",
-                    len(
-                        result.get(
-                            "insights",
-                            []
-                        )
-                    ),
-                    len(
-                        result.get(
-                            "insights",
-                            []
-                        )
-                    ) > 0
-                )
-
-            # =========================================
-            # DETECT PATTERNS
-            # =========================================
-
-            elif step == "detect_patterns":
-
-                logger.info(
-                    "EXECUTING | detect_patterns"
-                )
-
-                result = pattern_agent(
-                    state
-                )
-
-                state.update(
-                    result
-                )
-
-                observe_tool_result(
-                    state,
-                    "detect_patterns",
-                    len(
-                        result.get(
-                            "insights",
-                            []
-                        )
-                    ),
-                    len(
-                        result.get(
-                            "insights",
-                            []
-                        )
-                    ) > 0
-                )
-
-            # =========================================
-            # DETECT DELAYS
-            # =========================================
-
-            elif step == "detect_delays":
-
-                logger.info(
-                    "EXECUTING | detect_delays"
-                )
-
-                result = pattern_agent(
-                    state
-                )
-
-                state.update(
-                    result
-                )
-
-                observe_tool_result(
-                    state,
-                    "detect_delays",
-                    len(
-                        result.get(
-                            "insights",
-                            []
-                        )
-                    ),
-                    len(
-                        result.get(
-                            "insights",
-                            []
-                        )
-                    ) > 0
-                )
-
-            # =========================================
-            # IDENTIFY ROOT CAUSE
-            # =========================================
-
-            elif step in (
-                "identify_root_cause",
-                "identify_root_causes"
+            if not state.get(
+                "issue_key"
             ):
 
-                logger.info(
-                    "EXECUTING | identify_root_cause"
+                for item in result:
+
+                    if isinstance(
+                        item,
+                        dict
+                    ):
+
+                        key = item.get(
+                            "ticket_id"
+                        )
+
+                    else:
+
+                        key = getattr(
+                            item,
+                            "ticket_id",
+                            None
+                        )
+
+                    if key:
+
+                        state[
+                            "issue_key"
+                        ] = key
+
+                        logger.info(
+                            "JIRA ISSUE KEY | "
+                            "issue=%s",
+                            key
+                        )
+
+                        break
+
+        # =================================================
+        # RETRIEVE SLACK EVIDENCE
+        # =================================================
+
+        elif step == "retrieve_slack_evidence":
+
+            result = state.get(
+                "slack_evidence",
+                []
+            )
+
+            evidence[
+                "slack"
+            ] = result
+
+        # =================================================
+        # COMPARE EVIDENCE
+        # =================================================
+
+        elif step == "compare_evidence":
+
+            jira = state.get(
+                "jira_evidence",
+                []
+            )
+
+            slack = state.get(
+                "slack_evidence",
+                []
+            )
+
+            combined = {
+
+                "jira": jira,
+
+                "slack": slack
+            }
+
+            result = (
+                jira + slack
+            )
+
+            evidence[
+                "combined"
+            ] = combined
+
+            state[
+                "combined_evidence"
+            ] = combined
+
+            sufficient = (
+                len(result) > 0
+            )
+
+            logger.info(
+                "EVIDENCE COMBINED | "
+                "jira=%s | slack=%s",
+                len(jira),
+                len(slack)
+            )
+
+        # =================================================
+        # OBSERVE
+        # =================================================
+
+        elif step == "observe":
+
+            observation = state.get(
+                "observation",
+                {}
+            )
+
+            result = observation
+
+            sufficient = observation.get(
+                "sufficient",
+                False
+            )
+
+        # =================================================
+        # PATTERN AGENT
+        # =================================================
+
+        elif step in (
+            "detect_patterns",
+            "detect_delays"
+        ):
+
+            result = pattern_agent(
+                state
+            )
+
+            if result:
+
+                state.update(
+                    result
                 )
 
-                if not state.get(
-                    "insights"
-                ):
+        # =================================================
+        # ROOT CAUSE
+        # =================================================
 
-                    logger.warning(
-                        "ROOT CAUSE SKIPPED | "
-                        "No insights available"
-                    )
+        elif step in (
+            "identify_root_cause",
+            "identify_root_causes"
+        ):
 
-                    state[
-                        "execution_status"
-                    ] = "insufficient_evidence"
+            if not state.get(
+                "insights"
+            ):
 
-                    observe_tool_result(
-                        state,
-                        "identify_root_cause",
-                        0,
-                        False
-                    )
+                logger.warning(
+                    "ROOT CAUSE SKIPPED | "
+                    "No insights available"
+                )
 
-                    break
+                result = []
+
+            else:
 
                 result = reasoning_agent(
                     state
                 )
 
-                state.update(
-                    result
-                )
+                if result:
 
-                observe_tool_result(
-                    state,
-                    "reasoning_agent",
-                    len(
-                        result.get(
-                            "insights",
-                            []
-                        )
-                    ),
-                    len(
-                        result.get(
-                            "insights",
-                            []
-                        )
-                    ) > 0
-                )
+                    state.update(
+                        result
+                    )
 
-            # =========================================
-            # GENERATE RECOMMENDATION
-            # =========================================
+        # =================================================
+        # RECOMMENDATION
+        # =================================================
 
-            elif step in (
-                "generate_recommendation",
-                "generate_recommendations"
+        elif step in (
+            "generate_recommendation",
+            "generate_recommendations"
+        ):
+
+            if not state.get(
+                "insights"
             ):
 
-                logger.info(
-                    "EXECUTING | generate_recommendation"
+                logger.warning(
+                    "RECOMMENDATION SKIPPED | "
+                    "No insights available"
                 )
 
-                if not state.get(
-                    "insights"
-                ):
+                result = []
 
-                    logger.warning(
-                        "RECOMMENDATION SKIPPED | "
-                        "No insights available"
-                    )
-
-                    state[
-                        "execution_status"
-                    ] = "insufficient_evidence"
-
-                    observe_tool_result(
-                        state,
-                        "recommendation_agent",
-                        0,
-                        False
-                    )
-
-                    break
+            else:
 
                 result = recommendation_agent(
                     state
                 )
 
-                state.update(
-                    result
-                )
+                if result:
 
-                observe_tool_result(
-                    state,
-                    "recommendation_agent",
-                    len(
-                        result.get(
-                            "insights",
-                            []
-                        )
-                    ),
-                    len(
-                        result.get(
-                            "insights",
-                            []
-                        )
-                    ) > 0
-                )
-
-            # =========================================
-            # IDENTIFY BOTTLENECKS
-            # =========================================
-
-            elif step == "identify_bottlenecks":
-
-                logger.info(
-                    "EXECUTING | identify_bottlenecks"
-                )
-
-                if not state.get(
-                    "insights"
-                ):
-
-                    logger.warning(
-                        "BOTTLENECK ANALYSIS | "
-                        "No insights available"
+                    state.update(
+                        result
                     )
 
-                    state[
-                        "execution_status"
-                    ] = "insufficient_evidence"
+        # =================================================
+        # OTHER ANALYSIS STEPS
+        # =================================================
 
-                    observe_tool_result(
-                        state,
-                        "identify_bottlenecks",
-                        0,
-                        False
-                    )
+        elif step in (
+            "identify_bottlenecks",
+            "identify_problem",
+            "understand_goal"
+        ):
 
-                    break
-
-                observe_tool_result(
-                    state,
-                    "identify_bottlenecks",
-                    len(
-                        state.get(
-                            "insights",
-                            []
-                        )
-                    ),
-                    True
-                )
-
-            # =========================================
-            # IDENTIFY PROBLEM
-            # =========================================
-
-            elif step == "identify_problem":
-
-                logger.info(
-                    "EXECUTING | identify_problem"
-                )
-
-                result = pattern_agent(
-                    state
-                )
-
-                state.update(
-                    result
-                )
-
-                observe_tool_result(
-                    state,
-                    "identify_problem",
-                    len(
-                        result.get(
-                            "insights",
-                            []
-                        )
-                    ),
-                    len(
-                        result.get(
-                            "insights",
-                            []
-                        )
-                    ) > 0
-                )
-
-            # =========================================
-            # EXTRACT ISSUE KEY
-            # =========================================
-
-            elif step == "extract_issue_key":
-
-                logger.info(
-                    "EXECUTING | extract_issue_key"
-                )
-
-                issue_key = state.get(
-                    "issue_key"
-                )
-
-                if not issue_key:
-
-                    user_goal = state.get(
-                        "user_goal",
-                        ""
-                    )
-
-                    state[
-                        "issue_key"
-                    ] = user_goal
-
-                observe_tool_result(
-                    state,
-                    "extract_issue_key",
-                    1 if state.get(
-                        "issue_key"
-                    ) else 0,
-                    bool(
-                        state.get(
-                            "issue_key"
-                        )
-                    )
-                )
-
-            # =========================================
-            # RETRIEVE JIRA ISSUE
-            # =========================================
-
-            elif step == "retrieve_jira_issue":
-
-                logger.info(
-                    "EXECUTING | retrieve_jira_issue"
-                )
-
-                state[
-                    "execution_status"
-                ] = "jira_issue_retrieval_pending"
-
-                observe_tool_result(
-                    state,
-                    "retrieve_jira_issue",
-                    0,
-                    False,
-                    details={
-                        "status": "pending"
-                    }
-                )
-
-            # =========================================
-            # RETURN ISSUE
-            # =========================================
-
-            elif step == "return_issue":
-
-                logger.info(
-                    "EXECUTING | return_issue"
-                )
-
-                state[
-                    "execution_status"
-                ] = "completed"
-
-                observe_tool_result(
-                    state,
-                    "return_issue",
-                    1,
-                    True
-                )
-
-            # =========================================
-            # UNDERSTAND GOAL
-            # =========================================
-
-            elif step == "understand_goal":
-
-                logger.info(
-                    "EXECUTING | understand_goal"
-                )
-
-                user_goal = state.get(
-                    "user_goal"
-                )
-
-                if not user_goal:
-
-                    logger.warning(
-                        "USER GOAL NOT AVAILABLE"
-                    )
-
-                    state[
-                        "execution_status"
-                    ] = "missing_user_goal"
-
-                    observe_tool_result(
-                        state,
-                        "understand_goal",
-                        0,
-                        False
-                    )
-
-                    break
-
-                observe_tool_result(
-                    state,
-                    "understand_goal",
-                    1,
-                    True
-                )
-
-            # =========================================
-            # UNKNOWN STEP
-            # =========================================
-
-            else:
-
-                logger.warning(
-                    "UNKNOWN PLAN STEP | "
-                    "step=%s",
-                    step
-                )
-
-                state[
-                    "execution_status"
-                ] = "unknown_step"
-
-                observe_tool_result(
-                    state,
-                    step,
-                    0,
-                    False
-                )
-
-                break
-
-            # --------------------------------
-            # Step completed
-            # --------------------------------
-
-            logger.info(
-                "PLAN STEP COMPLETE | "
-                "step=%s | index=%s",
-                step,
-                current_step
-            )
-
-            current_step += 1
-
-            state[
-                "current_step"
-            ] = current_step
-
-        except Exception as e:
-
-            logger.exception(
-                "PLAN STEP FAILED | "
-                "step=%s | error=%s",
-                step,
-                e
-            )
-
-            state[
-                "execution_status"
-            ] = "step_failed"
-
-            state[
-                "execution_error"
-            ] = str(e)
-
-            observe_tool_result(
-                state,
-                step,
-                0,
-                False,
-                details={
-                    "error": str(e)
-                }
-            )
-
-            break
-
-    # --------------------------------
-    # Final status
-    # --------------------------------
-
-    if current_step >= len(plan):
-
-        state[
-            "execution_status"
-        ] = "completed"
-
-    logger.info(
-        "PLAN EXECUTOR END | "
-        "current_step=%s | "
-        "total_steps=%s | "
-        "status=%s",
-        current_step,
-        len(plan),
-        state.get(
-            "execution_status"
-        )
-    )
-
-    logger.info(
-        "OBSERVATIONS RECORDED | count=%s",
-        len(
-            state.get(
-                "observations",
+            result = state.get(
+                "insights",
                 []
             )
 
-        )
-    )
+        # =================================================
+        # JIRA ISSUE
+        # =================================================
 
-    return state
+        elif step == "extract_issue_key":
+
+            result = state.get(
+                "issue_key"
+            )
+
+            tool_results[
+                "extract_issue_key"
+            ] = result
+
+        elif step == "retrieve_jira_issue":
+
+            result = state.get(
+                "jira_evidence",
+                []
+            )
+
+            evidence[
+                "jira"
+            ] = result
+
+        elif step == "return_issue":
+
+            result = state.get(
+                "jira_evidence",
+                []
+            )
+
+        # =================================================
+        # UNKNOWN STEP
+        # =================================================
+
+        else:
+
+            logger.warning(
+                "UNKNOWN PLAN STEP | "
+                "step=%s",
+                step
+            )
+
+            result = None
+
+        # =================================================
+        # Store result
+        # =================================================
+
+        if step not in tool_results:
+
+            tool_results[
+                step
+            ] = result
+
+        # =================================================
+        # Result count
+        # =================================================
+
+        if isinstance(
+            result,
+            (list, tuple, dict)
+        ):
+
+            result_count = len(
+                result
+            )
+
+        elif result is None:
+
+            result_count = 0
+
+        else:
+
+            result_count = 1
+
+        # =================================================
+        # Observation
+        # =================================================
+
+        observations.append(
+            {
+
+                "step": step,
+
+                "result_count": (
+                    result_count
+                ),
+
+                "sufficient": (
+                    sufficient
+                )
+            }
+        )
+
+        logger.info(
+            "OBSERVATION | "
+            "tool=%s | "
+            "result_count=%s | "
+            "sufficient=%s",
+            step,
+            result_count,
+            sufficient
+        )
+
+        # =================================================
+        # Structured output
+        # =================================================
+
+        agent_outputs[
+            "plan_executor"
+        ] = {
+
+            "agent": (
+                "plan_executor"
+            ),
+
+            "status": "success",
+
+            "output": {
+
+                "step": step,
+
+                "result_count": (
+                    result_count
+                ),
+
+                "sufficient": (
+                    sufficient
+                )
+            },
+
+            "execution_time": (
+                time.perf_counter()
+                - start_time
+            ),
+
+            "error": None
+        }
+
+        # =================================================
+        # Advance step
+        # =================================================
+
+        next_step = (
+            current_step + 1
+        )
+
+        if next_step >= len(plan):
+
+            execution_status = (
+                "completed"
+            )
+
+            goal_completed = True
+
+            termination_reason = (
+                "plan_completed"
+            )
+
+        else:
+
+            execution_status = (
+                "running"
+            )
+
+            goal_completed = False
+
+            termination_reason = None
+
+        logger.info(
+            "PLAN STEP COMPLETE | "
+            "step=%s | index=%s",
+            step,
+            current_step
+        )
+
+        logger.info(
+            "PLAN EXECUTOR END | "
+            "current_step=%s | "
+            "total_steps=%s | "
+            "status=%s",
+            next_step,
+            len(plan),
+            execution_status
+        )
+
+        logger.info(
+            "OBSERVATIONS RECORDED | count=%s",
+            len(observations)
+        )
+
+        logger.info(
+            "SHORT-TERM MEMORY | "
+            "tool_results=%s | "
+            "evidence=%s | "
+            "agent_outputs=%s",
+            len(tool_results),
+            len(evidence),
+            len(agent_outputs)
+        )
+
+        logger.info(
+            "HUMAN-IN-THE-LOOP | "
+            "required=%s | "
+            "status=%s",
+            approval_required,
+            approval_status
+        )
+
+        execution_time = (
+            time.perf_counter()
+            - start_time
+        )
+
+        logger.info(
+            "AGENT END | plan_executor | "
+            "execution_time=%.2fs",
+            execution_time
+        )
+
+        return {
+
+            "current_step": (
+                next_step
+            ),
+
+            "iteration_count": (
+                iteration_count
+            ),
+
+            "last_step": step,
+
+            "step_repeat_count": (
+                state.get(
+                    "step_repeat_count",
+                    0
+                )
+            ),
+
+            "tool_results": (
+                tool_results
+            ),
+
+            "evidence": (
+                evidence
+            ),
+
+            "observations": (
+                observations
+            ),
+
+            "agent_outputs": (
+                agent_outputs
+            ),
+
+            "errors": (
+                errors
+            ),
+
+            "execution_status": (
+                execution_status
+            ),
+
+            "goal_completed": (
+                goal_completed
+            ),
+
+            "termination_reason": (
+                termination_reason
+            ),
+
+            "proposed_action": (
+                proposed_action
+            ),
+
+            "approval_required": (
+                approval_required
+            ),
+
+            "approval_status": (
+                approval_status
+            )
+        }
+
+    except Exception as e:
+
+        execution_time = (
+            time.perf_counter()
+            - start_time
+        )
+
+        logger.exception(
+            "AGENT FAILED | "
+            "plan_executor | "
+            "execution_time=%.2fs",
+            execution_time
+        )
+
+        errors = list(
+            state.get(
+                "errors",
+                []
+            )
+        )
+
+        errors.append(
+            {
+                "step": (
+                    state.get(
+                        "current_step"
+                    )
+                ),
+
+                "error": str(e)
+            }
+        )
+
+        return {
+
+            "agent_outputs": {
+
+                **state.get(
+                    "agent_outputs",
+                    {}
+                ),
+
+                "plan_executor": {
+
+                    "agent": (
+                        "plan_executor"
+                    ),
+
+                    "status": (
+                        "failed"
+                    ),
+
+                    "output": None,
+
+                    "execution_time": (
+                        execution_time
+                    ),
+
+                    "error": str(e)
+                }
+            },
+
+            "errors": errors,
+
+            "execution_status": (
+                "failed"
+            ),
+
+            "execution_error": (
+                str(e)
+            ),
+
+            "termination_reason": (
+                "executor_error"
+            ),
+
+            "goal_completed": False
+        }

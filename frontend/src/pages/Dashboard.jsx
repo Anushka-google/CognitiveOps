@@ -1,5 +1,4 @@
 import { useEffect, useState } from "react";
-import { Link } from "react-router-dom";
 
 import { getWorkflowAnalysis } from "../services/workflowApi";
 import { getRiskScores } from "../services/riskApi";
