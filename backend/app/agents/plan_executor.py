@@ -57,12 +57,9 @@ def plan_executor(
         )
 
         # =================================================
-        # IMPORTANT
+        # Iteration limit
         #
-        # Allow the complete plan to execute.
-        #
-        # Previous value was 5, but a HITL plan can
-        # contain more than 5 steps.
+        # Allow complete plan to execute.
         # =================================================
 
         max_iterations = max(
@@ -127,6 +124,11 @@ def plan_executor(
 
         approval_status = state.get(
             "approval_status",
+            None
+        )
+
+        approval_reason = state.get(
+            "approval_reason",
             None
         )
 
@@ -291,6 +293,10 @@ def plan_executor(
 
                 "approval_status": (
                     approval_status
+                ),
+
+                "approval_reason": (
+                    approval_reason
                 )
             }
 
@@ -310,7 +316,7 @@ def plan_executor(
         # =================================================
         # HIGH-IMPACT JIRA PROPOSAL
         #
-        # This is the HUMAN-IN-THE-LOOP boundary.
+        # HUMAN-IN-THE-LOOP boundary.
         #
         # IMPORTANT:
         # No Jira mutation happens here.
@@ -340,11 +346,15 @@ def plan_executor(
                         dict
                     ):
 
-                        issue_key = (
-                            item.get(
-                                "ticket_id"
-                            )
+                        issue_key = item.get(
+                            "ticket_id"
                         )
+
+                        if not issue_key:
+
+                            issue_key = item.get(
+                                "issue_key"
+                            )
 
                     else:
 
@@ -353,6 +363,14 @@ def plan_executor(
                             "ticket_id",
                             None
                         )
+
+                        if not issue_key:
+
+                            issue_key = getattr(
+                                item,
+                                "issue_key",
+                                None
+                            )
 
                     if issue_key:
 
@@ -648,13 +666,27 @@ def plan_executor(
 
         elif step == "retrieve_jira_evidence":
 
+            # Jira workflow records were already retrieved
+            # by WorkflowGraphService before the agent graph
+            # started. Use them as the Jira evidence source.
+
             result = state.get(
-                "jira_evidence",
+                "jira_evidence"
+            ) or state.get(
+                "workflows",
                 []
             )
 
             evidence[
                 "jira"
+            ] = result
+
+            # -------------------------------------------------
+            # Keep Jira evidence in state
+            # -------------------------------------------------
+
+            state[
+                "jira_evidence"
             ] = result
 
             # -------------------------------------------------
@@ -676,6 +708,18 @@ def plan_executor(
                             "ticket_id"
                         )
 
+                        if not key:
+
+                            key = item.get(
+                                "issue_key"
+                            )
+
+                        if not key:
+
+                            key = item.get(
+                                "key"
+                            )
+
                     else:
 
                         key = getattr(
@@ -683,6 +727,22 @@ def plan_executor(
                             "ticket_id",
                             None
                         )
+
+                        if not key:
+
+                            key = getattr(
+                                item,
+                                "issue_key",
+                                None
+                            )
+
+                        if not key:
+
+                            key = getattr(
+                                item,
+                                "key",
+                                None
+                            )
 
                     if key:
 
@@ -698,6 +758,10 @@ def plan_executor(
 
                         break
 
+            sufficient = (
+                len(result) > 0
+            )
+
         # =================================================
         # RETRIEVE SLACK EVIDENCE
         # =================================================
@@ -712,6 +776,14 @@ def plan_executor(
             evidence[
                 "slack"
             ] = result
+
+            state[
+                "slack_evidence"
+            ] = result
+
+            sufficient = (
+                len(result) > 0
+            )
 
         # =================================================
         # COMPARE EVIDENCE
@@ -889,6 +961,10 @@ def plan_executor(
                 "extract_issue_key"
             ] = result
 
+            sufficient = (
+                result is not None
+            )
+
         elif step == "retrieve_jira_issue":
 
             result = state.get(
@@ -900,11 +976,19 @@ def plan_executor(
                 "jira"
             ] = result
 
+            sufficient = (
+                len(result) > 0
+            )
+
         elif step == "return_issue":
 
             result = state.get(
                 "jira_evidence",
                 []
+            )
+
+            sufficient = (
+                len(result) > 0
             )
 
         # =================================================
@@ -1158,6 +1242,10 @@ def plan_executor(
 
             "approval_status": (
                 approval_status
+            ),
+
+            "approval_reason": (
+                approval_reason
             )
         }
 

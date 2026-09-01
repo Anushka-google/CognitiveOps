@@ -1,6 +1,10 @@
 import logging
 import time
 
+from app.services.risk_scoring_service import (
+    RiskScoringService
+)
+
 
 logger = logging.getLogger(__name__)
 
@@ -15,12 +19,11 @@ def planner_agent(state):
 
     Planner does NOT execute external actions.
 
-    For high-impact actions, the planner adds
-    a proposal step to the plan.
+    For high-risk workflows, the planner adds
+    a human-in-the-loop Jira proposal step.
 
-    The actual human approval gate is handled
-    by plan_executor after the required evidence
-    has been collected.
+    The actual approval gate is handled by
+    plan_executor.
     """
 
     logger.info(
@@ -39,6 +42,11 @@ def planner_agent(state):
             "user_goal"
         )
 
+        workflows = state.get(
+            "workflows",
+            []
+        )
+
         plan = []
 
         # =====================================================
@@ -53,6 +61,88 @@ def planner_agent(state):
 
         approval_reason = None
 
+        issue_key = state.get(
+            "issue_key"
+        )
+
+        # =====================================================
+        # RISK ANALYSIS
+        #
+        # Planner uses the same deterministic risk service
+        # used by the /api/risk endpoint.
+        # =====================================================
+
+        risk_data = {
+            "average_risk": 0,
+            "high_risk_tickets": 0,
+            "tickets": []
+        }
+
+        try:
+
+            risk_service = (
+                RiskScoringService()
+            )
+
+            risk_data = (
+                risk_service.calculate(
+                    workflows
+                )
+            )
+
+        except Exception as risk_error:
+
+            logger.exception(
+                "PLANNER RISK ANALYSIS FAILED | %s",
+                risk_error
+            )
+
+        high_risk_tickets = [
+
+            ticket
+
+            for ticket in risk_data.get(
+                "tickets",
+                []
+            )
+
+            if ticket.get(
+                "risk_level"
+            ) == "High"
+
+        ]
+
+        # =====================================================
+        # SELECT HIGHEST-RISK TICKET
+        # =====================================================
+
+        highest_risk_ticket = None
+
+        if high_risk_tickets:
+
+            highest_risk_ticket = max(
+                high_risk_tickets,
+                key=lambda item: item.get(
+                    "risk_score",
+                    0
+                )
+            )
+
+            issue_key = (
+                highest_risk_ticket.get(
+                    "ticket_id"
+                )
+            )
+
+            logger.warning(
+                "HIGH-RISK TICKET DETECTED | "
+                "ticket=%s | score=%s",
+                issue_key,
+                highest_risk_ticket.get(
+                    "risk_score"
+                )
+            )
+
         # =====================================================
         # EXPLAIN DELAY
         # =====================================================
@@ -60,14 +150,23 @@ def planner_agent(state):
         if intent == "explain_delay":
 
             plan = [
+
                 "find_workflow",
+
                 "find_delayed_tasks",
+
                 "retrieve_jira_evidence",
+
                 "retrieve_slack_evidence",
+
                 "compare_evidence",
+
                 "observe",
+
                 "identify_root_cause",
+
                 "generate_recommendation"
+
             ]
 
         # =====================================================
@@ -77,16 +176,49 @@ def planner_agent(state):
         elif intent == "analyze_workflow":
 
             plan = [
+
                 "find_workflow",
+
                 "detect_patterns",
+
                 "find_delayed_tasks",
+
                 "retrieve_jira_evidence",
+
                 "retrieve_slack_evidence",
+
                 "compare_evidence",
+
                 "observe",
+
                 "identify_root_causes",
+
                 "generate_recommendations"
+
             ]
+
+            # =================================================
+            # HIGH-RISK HUMAN-IN-THE-LOOP
+            #
+            # If at least one Jira ticket is High risk,
+            # add the approval proposal as the final step.
+            # =================================================
+
+            if highest_risk_ticket:
+
+                plan.append(
+                    "propose_jira_change"
+                )
+
+                logger.warning(
+                    "HITL STEP ADDED | "
+                    "ticket=%s | "
+                    "risk=%s",
+                    issue_key,
+                    highest_risk_ticket.get(
+                        "risk_score"
+                    )
+                )
 
         # =====================================================
         # FIND BOTTLENECK
@@ -95,14 +227,23 @@ def planner_agent(state):
         elif intent == "find_bottleneck":
 
             plan = [
+
                 "find_workflow",
+
                 "find_delayed_tasks",
+
                 "detect_delays",
+
                 "retrieve_jira_evidence",
+
                 "retrieve_slack_evidence",
+
                 "compare_evidence",
+
                 "observe",
+
                 "identify_bottlenecks"
+
             ]
 
         # =====================================================
@@ -112,20 +253,25 @@ def planner_agent(state):
         elif intent == "recommend_action":
 
             plan = [
+
                 "find_workflow",
+
                 "identify_problem",
+
                 "retrieve_jira_evidence",
+
                 "retrieve_slack_evidence",
+
                 "compare_evidence",
+
                 "observe",
+
                 "identify_root_cause",
+
                 "generate_recommendation",
 
-                # =============================================
-                # HUMAN-IN-THE-LOOP STEP
-                # =============================================
-
                 "propose_jira_change"
+
             ]
 
         # =====================================================
@@ -135,9 +281,13 @@ def planner_agent(state):
         elif intent == "retrieve_jira_issue":
 
             plan = [
+
                 "extract_issue_key",
+
                 "retrieve_jira_issue",
+
                 "return_issue"
+
             ]
 
         # =====================================================
@@ -175,11 +325,23 @@ def planner_agent(state):
         )
 
         logger.info(
+            "RISK SUMMARY | average=%s | high_risk=%s",
+            risk_data.get(
+                "average_risk"
+            ),
+            risk_data.get(
+                "high_risk_tickets"
+            )
+        )
+
+        logger.info(
             "HUMAN-IN-THE-LOOP | "
             "required=%s | "
-            "status=%s",
+            "status=%s | "
+            "issue=%s",
             approval_required,
-            approval_status
+            approval_status,
+            issue_key
         )
 
         # =====================================================
@@ -209,6 +371,14 @@ def planner_agent(state):
 
                 "steps": len(plan),
 
+                "issue_key": issue_key,
+
+                "risk_data": risk_data,
+
+                "high_risk_ticket": (
+                    highest_risk_ticket
+                ),
+
                 "proposed_action": (
                     proposed_action
                 ),
@@ -220,6 +390,7 @@ def planner_agent(state):
                 "approval_status": (
                     approval_status
                 )
+
             },
 
             "execution_time": (
@@ -227,6 +398,7 @@ def planner_agent(state):
             ),
 
             "error": None
+
         }
 
         logger.info(
@@ -253,6 +425,8 @@ def planner_agent(state):
 
             "current_step": 0,
 
+            "issue_key": issue_key,
+
             "proposed_action": (
                 proposed_action
             ),
@@ -272,6 +446,7 @@ def planner_agent(state):
             "agent_outputs": (
                 agent_outputs
             )
+
         }
 
     except Exception as e:
@@ -309,6 +484,7 @@ def planner_agent(state):
             ),
 
             "error": str(e)
+
         }
 
         return {
@@ -328,4 +504,5 @@ def planner_agent(state):
             "execution_error": (
                 str(e)
             )
+
         }
