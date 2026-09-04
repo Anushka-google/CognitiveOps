@@ -1,13 +1,9 @@
 import os
 import requests
 
-from requests.auth import (
-    HTTPBasicAuth
-)
+from requests.auth import HTTPBasicAuth
 
-from dotenv import (
-    load_dotenv
-)
+from dotenv import load_dotenv
 
 from app.services.workflow_mapper import (
     map_jira_to_workflow
@@ -60,12 +56,8 @@ class JiraService:
         )
 
         self.headers = {
-
-            "Accept":
-                "application/json",
-
-            "Content-Type":
-                "application/json"
+            "Accept": "application/json",
+            "Content-Type": "application/json"
         }
 
     # =========================================================
@@ -75,18 +67,19 @@ class JiraService:
     def check_config(self):
 
         return {
+            "base_url_exists": bool(
+                self.base_url
+            ),
 
-            "base_url_exists":
-                bool(self.base_url),
+            "email_exists": bool(
+                self.email
+            ),
 
-            "email_exists":
-                bool(self.email),
+            "token_exists": bool(
+                self.api_token
+            ),
 
-            "token_exists":
-                bool(self.api_token),
-
-            "project_key":
-                self.project_key
+            "project_key": self.project_key
         }
 
     # =========================================================
@@ -145,18 +138,12 @@ class JiraService:
         except Exception:
 
             data = {
-
-                "raw_response":
-                    response.text
+                "raw_response": response.text
             }
 
         return {
-
-            "status":
-                response.status_code,
-
-            "response":
-                data
+            "status": response.status_code,
+            "response": data
         }
 
     # =========================================================
@@ -221,22 +208,16 @@ class JiraService:
         except Exception:
 
             data = {
-
-                "raw_response":
-                    response.text
+                "raw_response": response.text
             }
 
         return {
-
-            "status":
-                response.status_code,
-
-            "response":
-                data
+            "status": response.status_code,
+            "response": data
         }
 
     # =========================================================
-    # CHECK BROWSE PROJECT PERMISSION
+    # CHECK PERMISSIONS
     # =========================================================
 
     def check_permissions(self):
@@ -247,12 +228,11 @@ class JiraService:
         )
 
         params = {
-
-            "projectKey":
-                self.project_key,
-
-            "permissions":
-                "BROWSE_PROJECTS,VIEW_ISSUES"
+            "projectKey": self.project_key,
+            "permissions": (
+                "BROWSE_PROJECTS,"
+                "VIEW_ISSUES"
+            )
         }
 
         response = requests.get(
@@ -306,18 +286,12 @@ class JiraService:
         except Exception:
 
             data = {
-
-                "raw_response":
-                    response.text
+                "raw_response": response.text
             }
 
         return {
-
-            "status":
-                response.status_code,
-
-            "response":
-                data
+            "status": response.status_code,
+            "response": data
         }
 
     # =========================================================
@@ -332,12 +306,8 @@ class JiraService:
         )
 
         params = {
-
-            "keys":
-                self.project_key,
-
-            "maxResults":
-                50
+            "keys": self.project_key,
+            "maxResults": 50
         }
 
         response = requests.get(
@@ -391,18 +361,12 @@ class JiraService:
         except Exception:
 
             data = {
-
-                "raw_response":
-                    response.text
+                "raw_response": response.text
             }
 
         return {
-
-            "status":
-                response.status_code,
-
-            "response":
-                data
+            "status": response.status_code,
+            "response": data
         }
 
     # =========================================================
@@ -412,25 +376,21 @@ class JiraService:
     def get_tickets(self):
 
         if not self.base_url:
-
             raise Exception(
                 "JIRA_BASE_URL is missing"
             )
 
         if not self.email:
-
             raise Exception(
                 "JIRA_EMAIL is missing"
             )
 
         if not self.api_token:
-
             raise Exception(
                 "JIRA_API_TOKEN is missing"
             )
 
         if not self.project_key:
-
             raise Exception(
                 "JIRA_PROJECT_KEY is missing"
             )
@@ -441,7 +401,6 @@ class JiraService:
         )
 
         params = {
-
             "jql":
                 f'project = "{self.project_key}"',
 
@@ -456,8 +415,7 @@ class JiraService:
                 "duedate"
             ),
 
-            "maxResults":
-                100
+            "maxResults": 100
         }
 
         response = requests.get(
@@ -540,6 +498,237 @@ class JiraService:
         return issues
 
     # =========================================================
+    # GET SINGLE JIRA ISSUE
+    #
+    # Used for evidence retrieval and post-mutation
+    # verification.
+    # =========================================================
+
+    def get_issue(
+        self,
+        issue_key
+    ):
+
+        if not issue_key:
+            raise Exception(
+                "Jira issue key is required"
+            )
+
+        url = (
+            f"{self.base_url}"
+            f"/rest/api/3/issue/"
+            f"{issue_key}"
+        )
+
+        params = {
+            "fields": (
+                "summary,"
+                "status,"
+                "assignee,"
+                "created,"
+                "updated,"
+                "priority,"
+                "issuetype,"
+                "duedate"
+            )
+        }
+
+        response = requests.get(
+            url,
+            params=params,
+            auth=self.auth,
+            headers=self.headers,
+            timeout=30
+        )
+
+        if response.status_code != 200:
+
+            raise Exception(
+                f"Jira issue retrieval failed "
+                f"{response.status_code}: "
+                f"{response.text}"
+            )
+
+        return response.json()
+
+    # =========================================================
+    # BUILD STRUCTURED JIRA EVIDENCE
+    # =========================================================
+
+    def build_issue_evidence(
+        self,
+        issue
+    ):
+
+        fields = issue.get(
+            "fields",
+            {}
+        )
+
+        status = fields.get(
+            "status"
+        ) or {}
+
+        assignee = fields.get(
+            "assignee"
+        ) or {}
+
+        priority = fields.get(
+            "priority"
+        ) or {}
+
+        issue_key = issue.get(
+            "key"
+        )
+
+        return {
+
+            # -----------------------------------------
+            # Identity
+            # -----------------------------------------
+
+            "ticket_id":
+                issue_key,
+
+            "issue_key":
+                issue_key,
+
+            # -----------------------------------------
+            # Basic information
+            # -----------------------------------------
+
+            "title":
+                fields.get(
+                    "summary"
+                ),
+
+            "summary":
+                fields.get(
+                    "summary"
+                ),
+
+            # -----------------------------------------
+            # Status
+            # -----------------------------------------
+
+            "status":
+                status.get(
+                    "name"
+                ),
+
+            "issue_status":
+                status.get(
+                    "name"
+                ),
+
+            # -----------------------------------------
+            # Ownership
+            # -----------------------------------------
+
+            "assignee":
+                assignee.get(
+                    "displayName"
+                ),
+
+            # -----------------------------------------
+            # Priority
+            # -----------------------------------------
+
+            "priority":
+                priority.get(
+                    "name"
+                ),
+
+            # -----------------------------------------
+            # Timeline
+            # -----------------------------------------
+
+            "created":
+                fields.get(
+                    "created"
+                ),
+
+            "updated":
+                fields.get(
+                    "updated"
+                ),
+
+            "due_date":
+                fields.get(
+                    "duedate"
+                ),
+
+            "timeline": {
+
+                "created":
+                    fields.get(
+                        "created"
+                    ),
+
+                "updated":
+                    fields.get(
+                        "updated"
+                    ),
+
+                "due_date":
+                    fields.get(
+                        "duedate"
+                    )
+            },
+
+            # -----------------------------------------
+            # Evidence metadata
+            # -----------------------------------------
+
+            "source":
+                "jira",
+
+            "evidence_type":
+                "jira_issue"
+        }
+
+    # =========================================================
+    # GET STRUCTURED JIRA EVIDENCE
+    # =========================================================
+
+    def get_jira_evidence(
+        self,
+        issue_keys=None
+    ):
+
+        if issue_keys:
+
+            evidence = []
+
+            for issue_key in issue_keys:
+
+                issue = self.get_issue(
+                    issue_key
+                )
+
+                evidence.append(
+                    self.build_issue_evidence(
+                        issue
+                    )
+                )
+
+            return evidence
+
+        tickets = self.get_tickets()
+
+        evidence = []
+
+        for ticket in tickets:
+
+            evidence.append(
+                self.build_issue_evidence(
+                    ticket
+                )
+            )
+
+        return evidence
+
+    # =========================================================
     # CONVERT JIRA TICKETS TO WORKFLOW RECORDS
     # =========================================================
 
@@ -585,7 +774,11 @@ class JiraService:
     # =========================================================
     # HUMAN-IN-THE-LOOP ACTION
     #
-    # This method is ONLY called after human approval.
+    # IMPORTANT:
+    # This method performs a REAL Jira mutation.
+    #
+    # It must ONLY be called by the approval endpoint
+    # after the human has approved the proposed action.
     # =========================================================
 
     def update_issue_priority(
@@ -667,6 +860,10 @@ class JiraService:
             "==============================================\n"
         )
 
+        # =====================================================
+        # ACTUAL JIRA MUTATION
+        # =====================================================
+
         response = requests.put(
             url,
             json=payload,
@@ -686,6 +883,10 @@ class JiraService:
                 f"{response.text}"
             )
 
+        # =====================================================
+        # Parse response
+        # =====================================================
+
         try:
 
             response_data = (
@@ -697,12 +898,66 @@ class JiraService:
         except Exception:
 
             response_data = {
-
                 "raw_response":
                     response.text
             }
 
+        # =====================================================
+        # VERIFY ACTUAL JIRA STATE
+        #
+        # PUT success means Jira accepted the request.
+        # GET verification confirms the field actually
+        # contains the expected value.
+        # =====================================================
+
+        verification = self.get_issue(
+            issue_key
+        )
+
+        verified_fields = verification.get(
+            "fields",
+            {}
+        )
+
+        verified_priority = (
+            verified_fields
+            .get(
+                "priority"
+            )
+            or {}
+        )
+
+        actual_priority = (
+            verified_priority
+            .get(
+                "name"
+            )
+        )
+
+        mutation_verified = (
+            actual_priority
+            == priority_name
+        )
+
+        if not mutation_verified:
+
+            raise Exception(
+                f"Jira priority update could not "
+                f"be verified. Expected "
+                f"'{priority_name}', got "
+                f"'{actual_priority}'."
+            )
+
+        print(
+            "JIRA MUTATION VERIFIED | "
+            f"{issue_key} | "
+            f"priority={actual_priority}"
+        )
+
         return {
+
+            "success":
+                True,
 
             "status":
                 response.status_code,
@@ -715,6 +970,12 @@ class JiraService:
 
             "new_value":
                 priority_name,
+
+            "verified_value":
+                actual_priority,
+
+            "mutation_verified":
+                True,
 
             "response":
                 response_data

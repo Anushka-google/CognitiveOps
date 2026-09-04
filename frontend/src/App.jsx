@@ -3,9 +3,13 @@ import {
   useState,
 } from "react";
 
-import { getWorkflowAnalysis } from "./services/workflowApi";
+import {
+  getWorkflowAnalysis
+} from "./services/workflowApi";
 
-import { getRiskScores } from "./services/riskApi";
+import {
+  getRiskScores
+} from "./services/riskApi";
 
 import {
   getExecutionStats,
@@ -24,27 +28,42 @@ import RiskCards from "./components/RiskCards";
 import RiskPieChart from "./components/RiskPieChart";
 import RiskTable from "./components/RiskTable";
 import ExecutiveSummary from "./components/ExecutiveSummary";
+import ApprovalPanel from "./components/ApprovalPanel";
 
 import "./pages/Dashboard.css";
+
+
 function Dashboard() {
 
-  const [data, setData] =
-    useState(null);
+  const [
+    data,
+    setData
+  ] = useState(null);
 
-  const [riskData, setRiskData] =
-    useState(null);
+  const [
+    riskData,
+    setRiskData
+  ] = useState(null);
 
-  const [executionData, setExecutionData] =
-    useState([]);
+  const [
+    executionData,
+    setExecutionData
+  ] = useState([]);
 
-  const [executionStats, setExecutionStats] =
-    useState(null);
+  const [
+    executionStats,
+    setExecutionStats
+  ] = useState(null);
 
-  const [error, setError] =
-    useState(null);
+  const [
+    error,
+    setError
+  ] = useState(null);
 
-  const [sidebarCollapsed, setSidebarCollapsed] =
-    useState(false);
+  const [
+    sidebarCollapsed,
+    setSidebarCollapsed
+  ] = useState(false);
 
 
   useEffect(() => {
@@ -157,17 +176,21 @@ function Dashboard() {
   }, []);
 
 
-  /* =========================
-     ERROR STATE
-  ========================= */
+  // =========================
+  // ERROR STATE
+  // =========================
 
   if (error) {
 
     return (
 
-      <div className="dashboard-state-screen">
+      <div
+        className="dashboard-state-screen"
+      >
 
-        <div className="state-card">
+        <div
+          className="state-card"
+        >
 
           <div className="state-icon">
             !
@@ -198,9 +221,9 @@ function Dashboard() {
   }
 
 
-  /* =========================
-     LOADING STATE
-  ========================= */
+  // =========================
+  // LOADING STATE
+  // =========================
 
   if (
     !data ||
@@ -211,11 +234,17 @@ function Dashboard() {
 
     return (
 
-      <div className="dashboard-state-screen">
+      <div
+        className="dashboard-state-screen"
+      >
 
-        <div className="dashboard-loader">
+        <div
+          className="dashboard-loader"
+        >
 
-          <div className="loader-ring"></div>
+          <div
+            className="loader-ring"
+          ></div>
 
           <h2>
             Analyzing workflow intelligence
@@ -251,7 +280,6 @@ function Dashboard() {
       }
     >
 
-
       {/* =========================
           SIDEBAR
       ========================= */}
@@ -260,6 +288,7 @@ function Dashboard() {
         collapsed={
           sidebarCollapsed
         }
+
         setCollapsed={
           setSidebarCollapsed
         }
@@ -270,8 +299,9 @@ function Dashboard() {
           MAIN CONTENT
       ========================= */}
 
-      <main className="dashboard-main">
-
+      <main
+        className="dashboard-main"
+      >
 
         {/* =========================
             OVERVIEW
@@ -284,7 +314,9 @@ function Dashboard() {
 
           <div>
 
-            <div className="dashboard-eyebrow">
+            <div
+              className="dashboard-eyebrow"
+            >
               WORKFLOW INTELLIGENCE
             </div>
 
@@ -300,9 +332,14 @@ function Dashboard() {
 
           </div>
 
-          <div className="analysis-status">
 
-            <span className="analysis-dot"></span>
+          <div
+            className="analysis-status"
+          >
+
+            <span
+              className="analysis-dot"
+            ></span>
 
             <div>
 
@@ -329,11 +366,15 @@ function Dashboard() {
           className="dashboard-section"
         >
 
-          <div className="section-label-row">
+          <div
+            className="section-label-row"
+          >
 
             <div>
 
-              <span className="section-kicker">
+              <span
+                className="section-kicker"
+              >
                 EXECUTIVE INTELLIGENCE
               </span>
 
@@ -343,24 +384,32 @@ function Dashboard() {
 
             </div>
 
-            <span className="ai-generated">
+            <span
+              className="ai-generated"
+            >
               AI Generated
             </span>
 
           </div>
 
-          <div className="executive-wrapper">
+
+          <div
+            className="executive-wrapper"
+          >
 
             <ExecutiveSummary
               workflowHealth={
                 data.workflow_health
               }
+
               totalIssues={
                 data.total_issues
               }
+
               highSeverity={
                 data.high_severity_issues
               }
+
               bottleneck={
                 firstInsight
                   ? firstInsight.issue
@@ -373,6 +422,37 @@ function Dashboard() {
         </section>
 
 
+        {/* =========================================
+            HUMAN-IN-THE-LOOP APPROVAL
+        ========================================= */}
+
+        {
+          data.approval_required &&
+          data.approval_status === "pending" &&
+          data.proposed_action && (
+
+            <ApprovalPanel
+
+              proposedAction={
+                data.proposed_action
+              }
+
+              approvalReason={
+                data.approval_reason
+              }
+
+              onComplete={() => {
+
+                window.location.reload();
+
+              }}
+
+            />
+
+          )
+        }
+
+
         {/* =========================
             KPI METRICS
         ========================= */}
@@ -381,11 +461,15 @@ function Dashboard() {
           className="dashboard-section"
         >
 
-          <div className="section-label-row">
+          <div
+            className="section-label-row"
+          >
 
             <div>
 
-              <span className="section-kicker">
+              <span
+                className="section-kicker"
+              >
                 KEY METRICS
               </span>
 
@@ -397,7 +481,10 @@ function Dashboard() {
 
           </div>
 
-          <div className="dashboard-metrics">
+
+          <div
+            className="dashboard-metrics"
+          >
 
             <MetricCard
               title="Total Issues"
@@ -422,7 +509,10 @@ function Dashboard() {
 
           </div>
 
-          <div className="risk-cards-wrapper">
+
+          <div
+            className="risk-cards-wrapper"
+          >
 
             <RiskCards
               riskData={
@@ -444,11 +534,15 @@ function Dashboard() {
           id="analytics"
         >
 
-          <div className="section-label-row">
+          <div
+            className="section-label-row"
+          >
 
             <div>
 
-              <span className="section-kicker">
+              <span
+                className="section-kicker"
+              >
                 ANALYTICS
               </span>
 
@@ -460,11 +554,18 @@ function Dashboard() {
 
           </div>
 
-          <div className="dashboard-analytics-grid">
 
-            <div className="dashboard-panel">
+          <div
+            className="dashboard-analytics-grid"
+          >
 
-              <div className="panel-header">
+            <div
+              className="dashboard-panel"
+            >
+
+              <div
+                className="panel-header"
+              >
 
                 <div>
 
@@ -480,7 +581,10 @@ function Dashboard() {
 
               </div>
 
-              <div className="chart-container">
+
+              <div
+                className="chart-container"
+              >
 
                 <IssuesChart
                   insights={
@@ -493,9 +597,13 @@ function Dashboard() {
             </div>
 
 
-            <div className="dashboard-panel">
+            <div
+              className="dashboard-panel"
+            >
 
-              <div className="panel-header">
+              <div
+                className="panel-header"
+              >
 
                 <div>
 
@@ -511,7 +619,10 @@ function Dashboard() {
 
               </div>
 
-              <div className="chart-container">
+
+              <div
+                className="chart-container"
+              >
 
                 <RiskPieChart
                   riskData={
@@ -526,11 +637,17 @@ function Dashboard() {
           </div>
 
 
-          <div className="dashboard-analytics-grid second-grid">
+          <div
+            className="dashboard-analytics-grid second-grid"
+          >
 
-            <div className="dashboard-panel">
+            <div
+              className="dashboard-panel"
+            >
 
-              <div className="panel-header">
+              <div
+                className="panel-header"
+              >
 
                 <div>
 
@@ -546,7 +663,10 @@ function Dashboard() {
 
               </div>
 
-              <div className="chart-container">
+
+              <div
+                className="chart-container"
+              >
 
                 <SeverityPieChart
                   insights={
@@ -559,9 +679,13 @@ function Dashboard() {
             </div>
 
 
-            <div className="dashboard-panel bottleneck-panel">
+            <div
+              className="dashboard-panel bottleneck-panel"
+            >
 
-              <div className="panel-header">
+              <div
+                className="panel-header"
+              >
 
                 <div>
 
@@ -577,15 +701,20 @@ function Dashboard() {
 
               </div>
 
-              <div className="bottleneck-wrapper">
+
+              <div
+                className="bottleneck-wrapper"
+              >
 
                 <BottleneckCard
                   title="Top Bottleneck"
+
                   value={
                     firstInsight
                       ? firstInsight.issue
                       : "None detected"
                   }
+
                   severity={
                     firstInsight
                       ? firstInsight.severity
@@ -611,11 +740,15 @@ function Dashboard() {
           id="risk-analysis"
         >
 
-          <div className="section-label-row">
+          <div
+            className="section-label-row"
+          >
 
             <div>
 
-              <span className="section-kicker">
+              <span
+                className="section-kicker"
+              >
                 OPERATIONAL RISK
               </span>
 
@@ -623,7 +756,9 @@ function Dashboard() {
                 Ticket Risk Analysis
               </h2>
 
-              <p className="section-description">
+              <p
+                className="section-description"
+              >
                 Prioritized workflow tickets
                 based on calculated
                 operational risk.
@@ -631,7 +766,10 @@ function Dashboard() {
 
             </div>
 
-            <div className="ticket-count">
+
+            <div
+              className="ticket-count"
+            >
 
               <strong>
                 {
@@ -649,7 +787,10 @@ function Dashboard() {
 
           </div>
 
-          <div className="table-panel">
+
+          <div
+            className="table-panel"
+          >
 
             <RiskTable
               riskData={
@@ -671,11 +812,15 @@ function Dashboard() {
           id="ai-insights"
         >
 
-          <div className="section-label-row">
+          <div
+            className="section-label-row"
+          >
 
             <div>
 
-              <span className="section-kicker">
+              <span
+                className="section-kicker"
+              >
                 AI INTELLIGENCE
               </span>
 
@@ -683,7 +828,9 @@ function Dashboard() {
                 Workflow Insights
               </h2>
 
-              <p className="section-description">
+              <p
+                className="section-description"
+              >
                 Detected operational issues
                 with impact analysis and
                 actionable recommendations.
@@ -691,7 +838,10 @@ function Dashboard() {
 
             </div>
 
-            <span className="insight-counter">
+
+            <span
+              className="insight-counter"
+            >
 
               {data.insights.length}
 
@@ -709,11 +859,14 @@ function Dashboard() {
           </div>
 
 
-          <div className="insights-grid">
+          <div
+            className="insights-grid"
+          >
 
             {
               data.insights.length > 0
                 ? (
+
                   data.insights.map(
                     (
                       insight,
@@ -721,19 +874,26 @@ function Dashboard() {
                     ) => (
 
                       <InsightCard
-                        key={index}
+                        key={
+                          index
+                        }
+
                         issue={
                           insight.issue
                         }
+
                         severity={
                           insight.severity
                         }
+
                         impact={
                           insight.impact
                         }
+
                         recommendation={
                           insight.recommendation
                         }
+
                         evidence={
                           insight.evidence
                         }
@@ -741,9 +901,13 @@ function Dashboard() {
 
                     )
                   )
+
                 )
                 : (
-                  <div className="empty-insights">
+
+                  <div
+                    className="empty-insights"
+                  >
 
                     <span>
                       ✓
@@ -759,13 +923,16 @@ function Dashboard() {
                     </p>
 
                   </div>
+
                 )
             }
 
           </div>
 
 
-          <div className="table-panel insights-table-panel">
+          <div
+            className="table-panel insights-table-panel"
+          >
 
             <InsightsTable
               insights={
@@ -787,11 +954,15 @@ function Dashboard() {
           id="execution-history"
         >
 
-          <div className="section-label-row">
+          <div
+            className="section-label-row"
+          >
 
             <div>
 
-              <span className="section-kicker">
+              <span
+                className="section-kicker"
+              >
                 EXECUTION MONITORING
               </span>
 
@@ -799,7 +970,9 @@ function Dashboard() {
                 Workflow Execution History
               </h2>
 
-              <p className="section-description">
+              <p
+                className="section-description"
+              >
                 Historical records of
                 CognitiveOps workflow
                 analysis executions.
@@ -814,7 +987,9 @@ function Dashboard() {
               EXECUTION STATISTICS
           ========================= */}
 
-          <div className="dashboard-metrics">
+          <div
+            className="dashboard-metrics"
+          >
 
             <MetricCard
               title="Total Executions"
@@ -851,7 +1026,9 @@ function Dashboard() {
               EXECUTION TABLE
           ========================= */}
 
-          <div className="table-panel">
+          <div
+            className="table-panel"
+          >
 
             <table>
 
@@ -868,11 +1045,15 @@ function Dashboard() {
                   </th>
 
                   <th>
-                    Issues
+                    Action
                   </th>
 
                   <th>
-                    High Severity
+                    Approval
+                  </th>
+
+                  <th>
+                    Execution
                   </th>
 
                   <th>
@@ -893,6 +1074,7 @@ function Dashboard() {
                 {
                   executionData.length > 0
                     ? (
+
                       executionData.map(
                         (
                           execution
@@ -919,13 +1101,21 @@ function Dashboard() {
 
                             <td>
                               {
-                                execution.total_issues
+                                execution.proposed_action
+                                  ? `${execution.proposed_action.target || "Unknown"} → ${execution.proposed_action.new_value || "N/A"}`
+                                  : "No action"
                               }
                             </td>
 
                             <td>
                               {
-                                execution.high_severity_issues
+                                execution.approval_status || "N/A"
+                              }
+                            </td>
+
+                            <td>
+                              {
+                                execution.execution_status || "N/A"
                               }
                             </td>
 
@@ -947,17 +1137,20 @@ function Dashboard() {
 
                         )
                       )
+
                     )
                     : (
+
                       <tr>
 
                         <td
-                          colSpan="6"
+                          colSpan="7"
                         >
                           No execution history found.
                         </td>
 
                       </tr>
+
                     )
                 }
 
@@ -979,11 +1172,15 @@ function Dashboard() {
           id="pipeline"
         >
 
-          <div className="section-label-row">
+          <div
+            className="section-label-row"
+          >
 
             <div>
 
-              <span className="section-kicker">
+              <span
+                className="section-kicker"
+              >
                 ANALYSIS PIPELINE
               </span>
 
@@ -995,7 +1192,10 @@ function Dashboard() {
 
           </div>
 
-          <div className="timeline-panel">
+
+          <div
+            className="timeline-panel"
+          >
 
             <WorkflowTimeline />
 
@@ -1010,7 +1210,9 @@ function Dashboard() {
           FOOTER
       ========================= */}
 
-      <footer className="dashboard-footer">
+      <footer
+        className="dashboard-footer"
+      >
 
         <div>
 
@@ -1035,5 +1237,6 @@ function Dashboard() {
   );
 
 }
+
 
 export default Dashboard;

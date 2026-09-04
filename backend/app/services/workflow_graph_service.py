@@ -3,9 +3,39 @@ import json
 
 from datetime import datetime
 
+from langgraph.graph import (
+    StateGraph,
+    START,
+    END
+)
+
+from app.agents.state import (
+    AgentState
+)
+
+from app.agents.planner_agent import (
+    planner_agent
+)
+
+from app.agents.plan_executor import (
+    plan_executor
+)
+
+from app.agents.observation_agent import (
+    observation_agent
+)
+
+from app.agents.reasoning_agent import (
+    reasoning_agent
+)
+
+from app.agents.recommendation_agent import (
+    recommendation_agent
+)
 from app.agents.workflow_graph import (
     workflow_graph
 )
+
 
 from app.db.database import (
     SessionLocal
@@ -116,6 +146,18 @@ class WorkflowGraphService:
                 "current_step": 0,
 
                 # =================================
+                # Human-in-the-Loop
+                # =================================
+
+                "proposed_action": {},
+
+                "approval_required": False,
+
+                "approval_status": None,
+
+                "approval_reason": None,
+
+                # =================================
                 # Shared Agent State
                 # =================================
 
@@ -168,6 +210,10 @@ class WorkflowGraphService:
                 "observation": {},
 
                 "observations": [],
+
+                "self_correction_required": False,
+
+                "self_correction_attempts": 0,
 
                 # =================================
                 # Termination Control

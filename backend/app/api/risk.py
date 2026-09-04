@@ -8,11 +8,13 @@ from app.services.risk_scoring_service import (
     RiskScoringService
 )
 
+
 router = APIRouter()
 
 
-@router.get("/risk")
-
+@router.get(
+    "/risk"
+)
 def get_risk_scores():
 
     jira_service = (
@@ -20,7 +22,8 @@ def get_risk_scores():
     )
 
     workflows = (
-        jira_service.get_workflow_records()
+        jira_service
+        .get_workflow_records()
     )
 
     risk_service = (

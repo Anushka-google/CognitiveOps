@@ -8,9 +8,7 @@ from fastapi import (
 
 from pydantic import BaseModel
 
-from app.services.jira_service import (
-    JiraService
-)
+from app.services.jira_service import JiraService
 
 from app.services.workflow_graph_service import (
     WorkflowGraphService
@@ -28,9 +26,7 @@ router = APIRouter()
 # APPROVAL REQUEST MODEL
 # =========================================================
 
-class ApprovalRequest(
-    BaseModel
-):
+class ApprovalRequest(BaseModel):
 
     issue_key: str
 
@@ -72,7 +68,6 @@ def jira_debug():
                     "JIRA_API_TOKEN"
                 )
             )
-
     }
 
 
@@ -187,7 +182,6 @@ def env_check():
             os.getenv(
                 "JIRA_PROJECT_KEY"
             )
-
     }
 
 
@@ -237,6 +231,10 @@ def workflow_approval(
     request: ApprovalRequest
 ):
 
+    # =====================================================
+    # 1. VALIDATE ISSUE KEY
+    # =====================================================
+
     issue_key = (
         request.issue_key
         .strip()
@@ -252,14 +250,18 @@ def workflow_approval(
         )
 
     # =====================================================
-    # REJECTION
+    # 2. REJECTION
+    #
+    # IMPORTANT:
+    # No Jira API mutation occurs.
     # =====================================================
 
     if request.decision == "reject":
 
         return {
 
-            "success": True,
+            "success":
+                True,
 
             "issue_key":
                 issue_key,
@@ -270,29 +272,43 @@ def workflow_approval(
             "execution_status":
                 "rejected",
 
-            "message":
-                "Human rejected the proposed Jira action."
+            "approval_required":
+                True,
 
+            "approval_status":
+                "rejected",
+
+            "message":
+                (
+                    "Human rejected the "
+                    "proposed Jira action."
+                )
         }
 
     # =====================================================
-    # APPROVAL
+    # 3. APPROVAL
     #
-    # IMPORTANT:
-    # Re-check Jira risk before performing the mutation.
-    #
-    # This prevents a stale approval from changing a ticket
-    # whose current state is no longer high risk.
+    # Re-fetch Jira state.
+    # Recalculate risk.
+    # Only then mutate Jira.
     # =====================================================
 
     try:
 
         jira_service = JiraService()
 
+        # =================================================
+        # FETCH CURRENT JIRA DATA
+        # =================================================
+
         workflows = (
             jira_service
             .get_workflow_records()
         )
+
+        # =================================================
+        # RECALCULATE CURRENT RISK
+        # =================================================
 
         risk_service = (
             RiskScoringService()
@@ -304,7 +320,12 @@ def workflow_approval(
             )
         )
 
+        # =================================================
+        # FIND APPROVED TICKET
+        # =================================================
+
         matching_ticket = next(
+
             (
                 ticket
 
@@ -318,13 +339,20 @@ def workflow_approval(
                     "ticket_id"
                 ) == issue_key
             ),
+
             None
         )
+
+        # =================================================
+        # TICKET NOT FOUND
+        # =================================================
 
         if not matching_ticket:
 
             raise HTTPException(
+
                 status_code=404,
+
                 detail=(
                     f"Jira ticket "
                     f"{issue_key} was not found."
@@ -332,37 +360,67 @@ def workflow_approval(
             )
 
         # =================================================
-        # SAFETY CHECK
+        # CURRENT RISK
         # =================================================
 
-        if matching_ticket.get(
-            "risk_level"
-        ) != "High":
+        current_risk_level = (
+            matching_ticket.get(
+                "risk_level"
+            )
+        )
+
+        current_risk_score = (
+            matching_ticket.get(
+                "risk_score"
+            )
+        )
+
+        # =================================================
+        # SAFETY GATE
+        #
+        # The ticket MUST still be High risk.
+        # =================================================
+
+        if current_risk_level != "High":
 
             raise HTTPException(
+
                 status_code=409,
+
                 detail=(
                     f"{issue_key} is no longer "
                     f"High risk. Current risk score: "
-                    f"{matching_ticket.get('risk_score')}"
+                    f"{current_risk_score}"
                 )
             )
 
         # =================================================
-        # EXECUTE APPROVED ACTION
+        # ACTUAL JIRA MUTATION
+        #
+        # THIS IS THE ONLY PLACE WHERE THE ACTION EXECUTES.
         # =================================================
 
+        new_priority = "Highest"
+
         jira_result = (
+
             jira_service
             .update_issue_priority(
+
                 issue_key,
-                "Highest"
+
+                new_priority
             )
         )
 
+        # =================================================
+        # SUCCESS RESPONSE
+        # =================================================
+
         return {
 
-            "success": True,
+            "success":
+                True,
 
             "issue_key":
                 issue_key,
@@ -370,40 +428,57 @@ def workflow_approval(
             "decision":
                 "approved",
 
+            "approval_required":
+                True,
+
+            "approval_status":
+                "approved",
+
             "execution_status":
                 "completed",
 
             "risk_score":
-                matching_ticket.get(
-                    "risk_score"
-                ),
+                current_risk_score,
 
             "risk_level":
-                matching_ticket.get(
-                    "risk_level"
-                ),
+                current_risk_level,
 
             "action":
                 "jira_update_priority",
 
+            "field":
+                "priority",
+
             "new_priority":
-                "Highest",
+                new_priority,
 
             "jira_result":
                 jira_result,
 
             "message":
-                "Human approval accepted and Jira action executed."
-
+                (
+                    "Human approval accepted "
+                    "and Jira action executed."
+                )
         }
+
+    # =====================================================
+    # PRESERVE HTTP ERRORS
+    # =====================================================
 
     except HTTPException:
 
         raise
 
+    # =====================================================
+    # UNEXPECTED ERROR
+    # =====================================================
+
     except Exception as e:
 
         raise HTTPException(
+
             status_code=500,
+
             detail=str(e)
         )

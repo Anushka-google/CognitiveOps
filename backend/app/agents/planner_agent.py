@@ -1,57 +1,56 @@
 import logging
 import time
 
-from app.services.risk_scoring_service import (
-    RiskScoringService
-)
+from app.agents.state import AgentState
+from app.services.risk_scoring_service import RiskScoringService
 
 
 logger = logging.getLogger(__name__)
 
 
-def planner_agent(state):
-
+def planner_agent(state: AgentState):
     """
-    Creates a decomposed execution plan
-    from the detected user intent and goal.
+    Creates a decomposed execution plan.
 
     Planner decides WHAT needs to be done.
 
-    Planner does NOT execute external actions.
+    Planner does NOT:
+    - execute Jira actions
+    - mutate Jira
+    - approve actions
 
-    For high-risk workflows, the planner adds
-    a human-in-the-loop Jira proposal step.
-
-    The actual approval gate is handled by
-    plan_executor.
+    High-risk Jira actions are only proposed.
+    Actual approval handling happens in plan_executor
+    and the approval API.
     """
 
-    logger.info(
-        "AGENT START | planner_agent"
-    )
+    logger.info("AGENT START | planner_agent")
 
     start_time = time.perf_counter()
 
     try:
 
-        intent = state.get(
-            "intent"
+        # =====================================================
+        # READ STATE
+        # =====================================================
+
+        intent = state.get("intent")
+
+        user_goal = state.get("user_goal")
+
+        workflows = list(
+            state.get("workflows", [])
         )
 
-        user_goal = state.get(
-            "user_goal"
+        existing_issue_key = state.get(
+            "issue_key"
         )
 
-        workflows = state.get(
-            "workflows",
-            []
-        )
+        # =====================================================
+        # DEFAULTS
+        # =====================================================
 
         plan = []
-
-        # =====================================================
-        # HUMAN-IN-THE-LOOP DEFAULTS
-        # =====================================================
 
         proposed_action = {}
 
@@ -61,84 +60,89 @@ def planner_agent(state):
 
         approval_reason = None
 
-        issue_key = state.get(
-            "issue_key"
-        )
+        issue_key = existing_issue_key
 
         # =====================================================
         # RISK ANALYSIS
-        #
-        # Planner uses the same deterministic risk service
-        # used by the /api/risk endpoint.
         # =====================================================
 
         risk_data = {
             "average_risk": 0,
-            "high_risk_tickets": 0,
+            "high_risk_tickets": [],
             "tickets": []
         }
 
         try:
 
-            risk_service = (
-                RiskScoringService()
-            )
+            risk_service = RiskScoringService()
 
-            risk_data = (
-                risk_service.calculate(
-                    workflows
-                )
+            risk_data = risk_service.calculate(
+                workflows
             )
 
         except Exception as risk_error:
 
             logger.exception(
-                "PLANNER RISK ANALYSIS FAILED | %s",
+                "RISK ANALYSIS FAILED | %s",
                 risk_error
             )
 
+        # =====================================================
+        # FIND HIGH-RISK TICKETS
+        # =====================================================
+
         high_risk_tickets = [
-
             ticket
-
             for ticket in risk_data.get(
                 "tickets",
                 []
             )
-
-            if ticket.get(
-                "risk_level"
-            ) == "High"
-
+            if ticket.get("risk_level") == "High"
         ]
 
         # =====================================================
         # SELECT HIGHEST-RISK TICKET
+        #
+        # IMPORTANT:
+        # We select the ticket with the maximum risk score,
+        # not simply the first High-risk ticket.
         # =====================================================
 
-        highest_risk_ticket = None
+        selected_high_risk = None
 
         if high_risk_tickets:
 
-            highest_risk_ticket = max(
+            selected_high_risk = max(
                 high_risk_tickets,
-                key=lambda item: item.get(
+                key=lambda ticket: ticket.get(
                     "risk_score",
                     0
                 )
             )
 
-            issue_key = (
-                highest_risk_ticket.get(
+        # =====================================================
+        # SET ISSUE KEY
+        # =====================================================
+
+        if selected_high_risk:
+
+            selected_issue_key = (
+                selected_high_risk.get(
                     "ticket_id"
                 )
             )
 
-            logger.warning(
+            # If the planner already received a specific issue
+            # key, preserve it. Otherwise select highest risk.
+            if not issue_key:
+
+                issue_key = selected_issue_key
+
+            logger.info(
                 "HIGH-RISK TICKET DETECTED | "
-                "ticket=%s | score=%s",
+                "selected=%s | score=%s",
                 issue_key,
-                highest_risk_ticket.get(
+                selected_high_risk.get(
                     "risk_score"
                 )
             )
@@ -150,23 +154,14 @@ def planner_agent(state):
         if intent == "explain_delay":
 
             plan = [
-
                 "find_workflow",
-
                 "find_delayed_tasks",
-
                 "retrieve_jira_evidence",
-
                 "retrieve_slack_evidence",
-
                 "compare_evidence",
-
                 "observe",
-
-                "identify_root_cause",
-
-                "generate_recommendation"
-
+                "identify_root_causes",
+                "generate_recommendations"
             ]
 
         # =====================================================
@@ -176,48 +171,26 @@ def planner_agent(state):
         elif intent == "analyze_workflow":
 
             plan = [
-
                 "find_workflow",
-
                 "detect_patterns",
-
                 "find_delayed_tasks",
-
                 "retrieve_jira_evidence",
-
                 "retrieve_slack_evidence",
-
                 "compare_evidence",
-
                 "observe",
-
                 "identify_root_causes",
-
                 "generate_recommendations"
-
             ]
 
-            # =================================================
-            # HIGH-RISK HUMAN-IN-THE-LOOP
-            #
-            # If at least one Jira ticket is High risk,
-            # add the approval proposal as the final step.
-            # =================================================
+            # -------------------------------------------------
+            # Add HITL proposal only when a High-risk ticket
+            # exists.
+            # -------------------------------------------------
 
-            if highest_risk_ticket:
+            if selected_high_risk:
 
                 plan.append(
                     "propose_jira_change"
-                )
-
-                logger.warning(
-                    "HITL STEP ADDED | "
-                    "ticket=%s | "
-                    "risk=%s",
-                    issue_key,
-                    highest_risk_ticket.get(
-                        "risk_score"
-                    )
                 )
 
         # =====================================================
@@ -227,23 +200,15 @@ def planner_agent(state):
         elif intent == "find_bottleneck":
 
             plan = [
-
                 "find_workflow",
-
+                "detect_patterns",
                 "find_delayed_tasks",
-
-                "detect_delays",
-
                 "retrieve_jira_evidence",
-
                 "retrieve_slack_evidence",
-
                 "compare_evidence",
-
                 "observe",
-
-                "identify_bottlenecks"
-
+                "identify_bottlenecks",
+                "generate_recommendations"
             ]
 
         # =====================================================
@@ -253,26 +218,21 @@ def planner_agent(state):
         elif intent == "recommend_action":
 
             plan = [
-
                 "find_workflow",
-
                 "identify_problem",
-
                 "retrieve_jira_evidence",
-
                 "retrieve_slack_evidence",
-
                 "compare_evidence",
-
                 "observe",
-
-                "identify_root_cause",
-
-                "generate_recommendation",
-
-                "propose_jira_change"
-
+                "identify_root_causes",
+                "generate_recommendations"
             ]
+
+            if selected_high_risk:
+
+                plan.append(
+                    "propose_jira_change"
+                )
 
         # =====================================================
         # RETRIEVE JIRA ISSUE
@@ -281,13 +241,9 @@ def planner_agent(state):
         elif intent == "retrieve_jira_issue":
 
             plan = [
-
                 "extract_issue_key",
-
                 "retrieve_jira_issue",
-
                 "return_issue"
-
             ]
 
         # =====================================================
@@ -301,16 +257,7 @@ def planner_agent(state):
             ]
 
         # =====================================================
-        # Execution Time
-        # =====================================================
-
-        execution_time = (
-            time.perf_counter()
-            - start_time
-        )
-
-        # =====================================================
-        # Logging
+        # LOG PLAN
         # =====================================================
 
         logger.info(
@@ -324,29 +271,14 @@ def planner_agent(state):
             plan
         )
 
-        logger.info(
-            "RISK SUMMARY | average=%s | high_risk=%s",
-            risk_data.get(
-                "average_risk"
-            ),
-            risk_data.get(
-                "high_risk_tickets"
-            )
-        )
-
-        logger.info(
-            "HUMAN-IN-THE-LOOP | "
-            "required=%s | "
-            "status=%s | "
-            "issue=%s",
-            approval_required,
-            approval_status,
-            issue_key
-        )
-
         # =====================================================
-        # Structured Agent Output
+        # STRUCTURED OUTPUT
         # =====================================================
+
+        execution_time = (
+            time.perf_counter()
+            - start_time
+        )
 
         agent_outputs = dict(
             state.get(
@@ -355,99 +287,112 @@ def planner_agent(state):
             )
         )
 
-        agent_outputs[
-            "planner_agent"
-        ] = {
+        agent_outputs["planner_agent"] = {
 
-            "agent": "planner_agent",
+            "agent":
+                "planner_agent",
 
-            "status": "success",
+            "status":
+                "success",
 
             "output": {
 
-                "intent": intent,
+                "intent":
+                    intent,
 
-                "plan": plan,
+                "plan":
+                    plan,
 
-                "steps": len(plan),
+                "steps":
+                    len(plan),
 
-                "issue_key": issue_key,
+                "high_risk_tickets":
+                    high_risk_tickets,
 
-                "risk_data": risk_data,
+                "selected_issue_key":
+                    issue_key,
 
-                "high_risk_ticket": (
-                    highest_risk_ticket
-                ),
+                "selected_risk_score":
+                    (
+                        selected_high_risk.get(
+                            "risk_score"
+                        )
+                        if selected_high_risk
+                        else None
+                    ),
 
-                "proposed_action": (
-                    proposed_action
-                ),
+                "proposed_action":
+                    proposed_action,
 
-                "approval_required": (
-                    approval_required
-                ),
+                "approval_required":
+                    approval_required,
 
-                "approval_status": (
-                    approval_status
-                )
+                "approval_status":
+                    approval_status,
 
+                "approval_reason":
+                    approval_reason
             },
 
-            "execution_time": (
-                execution_time
-            ),
+            "execution_time":
+                execution_time,
 
-            "error": None
-
+            "error":
+                None
         }
 
-        logger.info(
-            "STRUCTURED OUTPUT | "
-            "agent=planner_agent | "
-            "status=success"
-        )
-
-        logger.info(
-            "AGENT END | planner_agent"
-        )
-
         # =====================================================
-        # State Update
+        # RETURN
         # =====================================================
 
         return {
 
-            "user_goal": user_goal,
+            "user_goal":
+                user_goal,
 
-            "intent": intent,
+            "intent":
+                intent,
 
-            "plan": plan,
+            "plan":
+                plan,
 
-            "current_step": 0,
+            "current_step":
+                0,
 
-            "issue_key": issue_key,
+            "issue_key":
+                issue_key,
 
-            "proposed_action": (
-                proposed_action
-            ),
+            "proposed_action":
+                proposed_action,
 
-            "approval_required": (
-                approval_required
-            ),
+            "approval_required":
+                approval_required,
 
-            "approval_status": (
-                approval_status
-            ),
+            "approval_status":
+                approval_status,
 
-            "approval_reason": (
-                approval_reason
-            ),
+            "approval_reason":
+                approval_reason,
 
-            "agent_outputs": (
+            "execution_status":
+                None,
+
+            "execution_error":
+                None,
+
+            "goal_completed":
+                False,
+
+            "termination_reason":
+                None,
+
+            "agent_outputs":
                 agent_outputs
-            )
-
         }
+
+    # =========================================================
+    # ERROR
+    # =========================================================
 
     except Exception as e:
 
@@ -469,40 +414,51 @@ def planner_agent(state):
             )
         )
 
-        agent_outputs[
-            "planner_agent"
-        ] = {
+        agent_outputs["planner_agent"] = {
 
-            "agent": "planner_agent",
+            "agent":
+                "planner_agent",
 
-            "status": "failed",
+            "status":
+                "failed",
 
-            "output": None,
+            "output":
+                None,
 
-            "execution_time": (
-                execution_time
-            ),
+            "execution_time":
+                execution_time,
 
-            "error": str(e)
-
+            "error":
+                str(e)
         }
+
+        errors = list(
+            state.get(
+                "errors",
+                []
+            )
+        )
+
+        errors.append({
+
+            "agent":
+                "planner_agent",
+
+            "error":
+                str(e)
+        })
 
         return {
 
-            "agent_outputs": (
-                agent_outputs
-            ),
+            "agent_outputs":
+                agent_outputs,
 
-            "errors": [
+            "errors":
+                errors,
+
+            "execution_status":
+                "failed",
+
+            "execution_error":
                 str(e)
-            ],
-
-            "execution_status": (
-                "failed"
-            ),
-
-            "execution_error": (
-                str(e)
-            )
-
         }

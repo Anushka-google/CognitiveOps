@@ -1,23 +1,216 @@
 import logging
 import time
 
+from app.agents.state import AgentState
+
 
 logger = logging.getLogger(__name__)
 
 
-def observation_agent(state):
+# =========================================================
+# HELPERS
+# =========================================================
+
+def _copy_agent_outputs(state: AgentState):
+    return dict(
+        state.get(
+            "agent_outputs",
+            {}
+        )
+    )
+
+
+def _copy_errors(state: AgentState):
+    return list(
+        state.get(
+            "errors",
+            []
+        )
+    )
+
+
+def _normalize_evidence_items(value):
     """
-    Observes evidence produced by previous
-    tool/action execution.
+    Normalize structured evidence into a list.
 
-    Determines whether the evidence contains
-    the information required for reliable reasoning.
+    Supported formats:
 
-    It does not:
-    - execute tools
-    - call external APIs
-    - call Gemini
-    - generate recommendations
+        Jira issue:
+        {
+            "key": "KAN-2",
+            "fields": {...}
+        }
+
+        Jira issue list:
+        [
+            {...},
+            {...}
+        ]
+
+        Jira search response:
+        {
+            "issues": [...]
+        }
+
+    This prevents a valid Jira dictionary from being
+    incorrectly treated as empty evidence.
+    """
+
+    if value is None:
+        return []
+
+    # Already a collection of evidence items.
+    if isinstance(
+        value,
+        (list, tuple, set)
+    ):
+        return list(value)
+
+    # Structured dictionary.
+    if isinstance(value, dict):
+
+        # Jira search/API response containing issues.
+        issues = value.get("issues")
+
+        if isinstance(
+            issues,
+            list
+        ):
+            return issues
+
+        # A single Jira issue is itself a dictionary.
+        return [value]
+
+    return []
+
+
+def _extract_nested_value(item, *keys):
+    """
+    Safely retrieve a value from either:
+
+        item["key"]
+
+    or:
+
+        item["fields"]["key"]
+    """
+
+    if not isinstance(
+        item,
+        dict
+    ):
+        return None
+
+    fields = item.get(
+        "fields",
+        {}
+    )
+
+    if not isinstance(
+        fields,
+        dict
+    ):
+        fields = {}
+
+    for key in keys:
+
+        value = item.get(
+            key
+        )
+
+        if value is not None:
+            return value
+
+        value = fields.get(
+            key
+        )
+
+        if value is not None:
+            return value
+
+    return None
+
+
+def _normalize_field_value(value):
+    """
+    Jira commonly returns fields such as:
+
+        {"name": "In Progress"}
+
+    Convert these into simple values.
+    """
+
+    if isinstance(
+        value,
+        dict
+    ):
+
+        # Jira status / priority / user etc.
+        if value.get("name") is not None:
+            return value.get("name")
+
+        if value.get("value") is not None:
+            return value.get("value")
+
+        if value.get("displayName") is not None:
+            return value.get(
+                "displayName"
+            )
+
+        if value.get("key") is not None:
+            return value.get(
+                "key"
+            )
+
+    return value
+
+
+def _has_value(value):
+    """
+    Determine whether a field actually contains
+    useful evidence.
+    """
+
+    if value is None:
+        return False
+
+    if isinstance(
+        value,
+        str
+    ):
+        return bool(
+            value.strip()
+        )
+
+    return True
+
+
+# =========================================================
+# OBSERVATION AGENT
+# =========================================================
+
+def observation_agent(
+    state: AgentState
+):
+    """
+    Observes evidence collected by previous agents.
+
+    The agent validates whether the available Jira/Slack
+    evidence is sufficient for downstream reasoning.
+
+    Important:
+
+    Jira API responses can be either:
+
+        list[dict]
+
+    or:
+
+        dict
+
+    representing one Jira issue.
+
+    Therefore evidence is normalized before inspection.
     """
 
     logger.info(
@@ -28,262 +221,483 @@ def observation_agent(state):
 
     try:
 
-        # ==========================================
-        # 1. Read evidence from state
-        # ==========================================
+        # =====================================================
+        # READ JIRA EVIDENCE
+        # =====================================================
 
         jira_evidence = state.get(
             "jira_evidence",
             []
         )
 
+        # =====================================================
+        # READ SLACK EVIDENCE
+        # =====================================================
+
         slack_evidence = state.get(
             "slack_evidence",
             []
         )
+
+        # =====================================================
+        # FALLBACK TO COMBINED EVIDENCE
+        # =====================================================
 
         combined_evidence = state.get(
             "combined_evidence",
             {}
         )
 
-        # ==========================================
-        # 2. Fallback to combined evidence
-        # ==========================================
-
         if not jira_evidence:
 
-            jira_evidence = combined_evidence.get(
-                "jira",
-                []
-            )
+            if isinstance(
+                combined_evidence,
+                dict
+            ):
+
+                jira_evidence = (
+                    combined_evidence.get(
+                        "jira",
+                        []
+                    )
+                )
 
         if not slack_evidence:
 
-            slack_evidence = combined_evidence.get(
-                "slack",
-                []
+            if isinstance(
+                combined_evidence,
+                dict
+            ):
+
+                slack_evidence = (
+                    combined_evidence.get(
+                        "slack",
+                        []
+                    )
+                )
+
+        # =====================================================
+        # NORMALIZE EVIDENCE
+        # =====================================================
+
+        jira_items = (
+            _normalize_evidence_items(
+                jira_evidence
             )
-
-        # ==========================================
-        # 3. Count observed evidence
-        # ==========================================
-
-        jira_count = len(
-            jira_evidence
         )
 
-        slack_count = len(
-            slack_evidence
+        slack_items = (
+            _normalize_evidence_items(
+                slack_evidence
+            )
         )
 
         logger.info(
-            "OBSERVATION INPUT | "
-            "jira=%s | slack=%s",
-            jira_count,
-            slack_count
+            "OBSERVATION | "
+            "jira_items=%s | "
+            "slack_items=%s",
+            len(jira_items),
+            len(slack_items)
         )
 
-        # ==========================================
-        # 4. Identify available sources
-        # ==========================================
+        # =====================================================
+        # JIRA EVIDENCE ANALYSIS
+        # =====================================================
 
-        sources = []
+        jira_ticket_found = False
+        jira_status_found = False
+        jira_timeline_found = False
+        jira_priority_found = False
+        jira_risk_found = False
 
-        if jira_count > 0:
+        jira_observations = []
 
-            sources.append(
-                "jira"
+        for item in jira_items:
+
+            if not isinstance(
+                item,
+                dict
+            ):
+                continue
+
+            # -------------------------------------------------
+            # Ticket / Issue Key
+            # -------------------------------------------------
+
+            issue_key = (
+                item.get("key")
+                or
+                item.get("issue_key")
+                or
+                item.get("ticket_id")
             )
 
-        if slack_count > 0:
+            if not issue_key:
 
-            sources.append(
-                "slack"
+                issue_key = (
+                    _extract_nested_value(
+                        item,
+                        "key",
+                        "issue_key",
+                        "ticket_id"
+                    )
+                )
+
+            if _has_value(
+                issue_key
+            ):
+                jira_ticket_found = True
+
+            # -------------------------------------------------
+            # Status
+            # -------------------------------------------------
+
+            status = _extract_nested_value(
+                item,
+                "status",
+                "state"
             )
 
-        # ==========================================
-        # 5. Evidence Quality Check
-        # ==========================================
+            status = _normalize_field_value(
+                status
+            )
 
-        jira_ticket = (
-            jira_count > 0
+            if _has_value(
+                status
+            ):
+                jira_status_found = True
+
+            # -------------------------------------------------
+            # Priority
+            # -------------------------------------------------
+
+            priority = _extract_nested_value(
+                item,
+                "priority"
+            )
+
+            priority = _normalize_field_value(
+                priority
+            )
+
+            if _has_value(
+                priority
+            ):
+                jira_priority_found = True
+
+            # -------------------------------------------------
+            # Timeline
+            #
+            # Jira commonly exposes created,
+            # updated and duedate inside fields.
+            # -------------------------------------------------
+
+            created = _extract_nested_value(
+                item,
+                "created",
+                "created_at"
+            )
+
+            updated = _extract_nested_value(
+                item,
+                "updated",
+                "updated_at"
+            )
+
+            due_date = _extract_nested_value(
+                item,
+                "duedate",
+                "due_date"
+            )
+
+            timeline_found = (
+                _has_value(created)
+                or
+                _has_value(updated)
+                or
+                _has_value(due_date)
+            )
+
+            if timeline_found:
+                jira_timeline_found = True
+
+            # -------------------------------------------------
+            # Risk
+            #
+            # Risk may already be present in processed
+            # workflow evidence.
+            # -------------------------------------------------
+
+            risk = _extract_nested_value(
+                item,
+                "risk",
+                "risk_score",
+                "risk_level"
+            )
+
+            risk = _normalize_field_value(
+                risk
+            )
+
+            if _has_value(
+                risk
+            ):
+                jira_risk_found = True
+
+            # -------------------------------------------------
+            # Store normalized observation
+            # -------------------------------------------------
+
+            jira_observations.append({
+
+                "issue_key":
+                    issue_key,
+
+                "status":
+                    status,
+
+                "priority":
+                    priority,
+
+                "created":
+                    created,
+
+                "updated":
+                    updated,
+
+                "duedate":
+                    due_date,
+
+                "risk":
+                    risk
+            })
+
+            logger.debug(
+                "JIRA OBSERVATION | "
+                "issue=%s | "
+                "status=%s | "
+                "priority=%s | "
+                "created=%s | "
+                "updated=%s | "
+                "duedate=%s",
+                issue_key,
+                status,
+                priority,
+                created,
+                updated,
+                due_date
+            )
+
+        # =====================================================
+        # SLACK EVIDENCE ANALYSIS
+        # =====================================================
+
+        slack_message_found = False
+        slack_timeline_found = False
+
+        slack_observations = []
+
+        for item in slack_items:
+
+            # -------------------------------------------------
+            # Slack may contain structured dictionaries.
+            # -------------------------------------------------
+
+            if isinstance(
+                item,
+                dict
+            ):
+
+                message = (
+                    item.get("message")
+                    or
+                    item.get("text")
+                    or
+                    item.get("content")
+                )
+
+                timestamp = (
+                    item.get("timestamp")
+                    or
+                    item.get("ts")
+                    or
+                    item.get("created")
+                    or
+                    item.get("created_at")
+                )
+
+                if _has_value(
+                    message
+                ):
+                    slack_message_found = True
+
+                if _has_value(
+                    timestamp
+                ):
+                    slack_timeline_found = True
+
+                slack_observations.append({
+
+                    "message":
+                        message,
+
+                    "timestamp":
+                        timestamp
+                })
+
+            # -------------------------------------------------
+            # Plain text Slack evidence.
+            # -------------------------------------------------
+
+            elif isinstance(
+                item,
+                str
+            ):
+
+                if item.strip():
+
+                    slack_message_found = True
+
+                    slack_observations.append({
+
+                        "message":
+                            item,
+
+                        "timestamp":
+                            None
+                    })
+
+        # =====================================================
+        # EVIDENCE QUALITY
+        # =====================================================
+
+        evidence_quality = {
+
+            "jira_ticket":
+                jira_ticket_found,
+
+            "jira_status":
+                jira_status_found,
+
+            "jira_timeline":
+                jira_timeline_found,
+
+            "jira_priority":
+                jira_priority_found,
+
+            "jira_risk":
+                jira_risk_found,
+
+            "slack_message":
+                slack_message_found,
+
+            "slack_timeline":
+                slack_timeline_found
+        }
+
+        # =====================================================
+        # DETERMINE SUFFICIENCY
+        # =====================================================
+        #
+        # Jira alone is sufficient when we have:
+        #
+        #   ticket + status + timeline
+        #
+        # Slack is supplementary evidence.
+        #
+        # We do NOT require Slack to be present because
+        # Slack evidence can legitimately be unavailable.
+        # =====================================================
+
+        jira_sufficient = (
+            jira_ticket_found
+            and
+            jira_status_found
+            and
+            jira_timeline_found
         )
 
-        jira_status = any(
-            isinstance(item, dict)
-            and (
-                item.get("status")
-                or item.get("issue_status")
-                or item.get("state")
-            )
-            for item in jira_evidence
+        slack_sufficient = (
+            slack_message_found
+            and
+            slack_timeline_found
         )
-
-        jira_timeline = any(
-            isinstance(item, dict)
-            and (
-                item.get("timestamp")
-                or item.get("created")
-                or item.get("updated")
-                or item.get("timeline")
-                or item.get("days_waiting")
-            )
-            for item in jira_evidence
-        )
-
-        slack_message = (
-            slack_count > 0
-        )
-
-        # ==========================================
-        # 6. Identify Missing Information
-        # ==========================================
-
-        missing_information = []
-
-        if not jira_ticket:
-
-            missing_information.append(
-                "affected ticket"
-            )
-
-        if not jira_status:
-
-            missing_information.append(
-                "ticket status"
-            )
-
-        if not jira_timeline:
-
-            missing_information.append(
-                "timeline"
-            )
-
-        if not slack_message:
-
-            logger.info(
-                "OBSERVATION | "
-                "Slack evidence unavailable"
-            )
-
-        # ==========================================
-        # 7. Determine Sufficiency
-        # ==========================================
 
         sufficient = (
-            jira_ticket
-            and jira_status
-            and jira_timeline
+            jira_sufficient
+            or
+            slack_sufficient
         )
 
-        needs_correction = (
-            not sufficient
-        )
-
-        if sufficient:
-
-            status = "sufficient"
-
-            reason = (
-                "Required operational evidence "
-                "is available for reasoning."
-            )
-
-        else:
-
-            status = "insufficient"
-
-            reason = (
-                "Required evidence is missing "
-                "for reliable reasoning."
-            )
-
-        # ==========================================
-        # 8. Build Observation Result
-        # ==========================================
+        # =====================================================
+        # OBSERVATION
+        # =====================================================
 
         observation = {
 
-            "status": status,
+            "sufficient":
+                sufficient,
 
-            "sufficient": sufficient,
+            "jira_count":
+                len(jira_items),
 
-            "needs_correction": (
-                needs_correction
-            ),
+            "slack_count":
+                len(slack_items),
 
-            "reason": reason,
+            "evidence_quality":
+                evidence_quality,
 
-            "sources": sources,
+            "jira_observations":
+                jira_observations,
 
-            "missing_information": (
-                missing_information
-            ),
+            "slack_observations":
+                slack_observations,
 
-            "jira_count": jira_count,
-
-            "slack_count": slack_count,
-
-            "evidence_quality": {
-
-                "jira_ticket": jira_ticket,
-
-                "jira_status": jira_status,
-
-                "jira_timeline": jira_timeline,
-
-                "slack_message": slack_message
-            }
+            "summary":
+                (
+                    "Sufficient Jira evidence available."
+                    if jira_sufficient
+                    else
+                    "Sufficient Slack evidence available."
+                    if slack_sufficient
+                    else
+                    "Evidence is insufficient for reliable reasoning."
+                )
         }
 
-        # ==========================================
-        # 9. Logging
-        # ==========================================
+        # =====================================================
+        # EXECUTION STATUS
+        # =====================================================
 
-        logger.info(
-            "OBSERVATION RESULT | "
-            "status=%s | "
-            "sufficient=%s | "
-            "needs_correction=%s",
-            status,
-            sufficient,
-            needs_correction
+        execution_status = state.get(
+            "execution_status"
         )
 
-        logger.info(
-            "EVIDENCE QUALITY | "
-            "jira_ticket=%s | "
-            "jira_status=%s | "
-            "jira_timeline=%s | "
-            "slack_message=%s",
-            jira_ticket,
-            jira_status,
-            jira_timeline,
-            slack_message
-        )
+        # HITL must remain paused.
+        #
+        # Observation must never accidentally turn
+        # awaiting_human_approval into running/completed.
+        if execution_status == (
+            "awaiting_human_approval"
+        ):
 
-        logger.info(
-            "SELF-CORRECTION CHECK | "
-            "needed=%s | "
-            "missing=%s",
-            needs_correction,
-            missing_information
-        )
+            logger.info(
+                "OBSERVATION | "
+                "HITL state preserved"
+            )
 
-        # ==========================================
-        # Structured Agent Output
-        # ==========================================
+        # =====================================================
+        # STRUCTURED AGENT OUTPUT
+        # =====================================================
 
         execution_time = (
             time.perf_counter()
             - start_time
         )
 
-        agent_outputs = dict(
-            state.get(
-                "agent_outputs",
-                {}
+        agent_outputs = (
+            _copy_agent_outputs(
+                state
             )
         )
 
@@ -291,62 +705,78 @@ def observation_agent(state):
             "observation_agent"
         ] = {
 
-            "agent": "observation_agent",
+            "agent":
+                "observation_agent",
 
-            "status": "success",
+            "status":
+                "success",
 
-            "output": {
+            "output":
+                observation,
 
-                "status": status,
+            "execution_time":
+                execution_time,
 
-                "sufficient": sufficient,
-
-                "needs_correction": (
-                    needs_correction
-                ),
-
-                "missing_information": (
-                    missing_information
-                ),
-
-                "jira_count": jira_count,
-
-                "slack_count": slack_count
-            },
-
-            "execution_time": (
-                execution_time
-            ),
-
-            "error": None
+            "error":
+                None
         }
 
+        # =====================================================
+        # FINAL STATE UPDATE
+        # =====================================================
+
+        state_update = {
+
+            "observation":
+                observation,
+
+            "agent_outputs":
+                agent_outputs
+        }
+
+        # -----------------------------------------------------
+        # Preserve HITL status explicitly.
+        # -----------------------------------------------------
+
+        if execution_status == (
+            "awaiting_human_approval"
+        ):
+
+            state_update[
+                "execution_status"
+            ] = (
+                "awaiting_human_approval"
+            )
+
+            state_update[
+                "goal_completed"
+            ] = False
+
+            state_update[
+                "termination_reason"
+            ] = (
+                "human_approval_required"
+            )
+
         logger.info(
-            "STRUCTURED OUTPUT | "
-            "agent=observation_agent | "
-            "status=success"
+            "OBSERVATION COMPLETE | "
+            "sufficient=%s | "
+            "jira_count=%s | "
+            "slack_count=%s",
+            sufficient,
+            len(jira_items),
+            len(slack_items)
         )
 
         logger.info(
             "AGENT END | observation_agent"
         )
 
-        # ==========================================
-        # 10. Return State Update
-        # ==========================================
+        return state_update
 
-        return {
-
-            "observation": observation,
-
-            "observation_status": status,
-
-            "self_correction_required": (
-                needs_correction
-            ),
-
-            "agent_outputs": agent_outputs
-        }
+    # =========================================================
+    # ERROR
+    # =========================================================
 
     except Exception as e:
 
@@ -361,10 +791,9 @@ def observation_agent(state):
             execution_time
         )
 
-        agent_outputs = dict(
-            state.get(
-                "agent_outputs",
-                {}
+        agent_outputs = (
+            _copy_agent_outputs(
+                state
             )
         )
 
@@ -372,24 +801,43 @@ def observation_agent(state):
             "observation_agent"
         ] = {
 
-            "agent": "observation_agent",
+            "agent":
+                "observation_agent",
 
-            "status": "failed",
+            "status":
+                "failed",
 
-            "output": None,
+            "output":
+                None,
 
-            "execution_time": (
-                execution_time
-            ),
+            "execution_time":
+                execution_time,
 
-            "error": str(e)
+            "error":
+                str(e)
         }
+
+        errors = _copy_errors(
+            state
+        )
+
+        errors.append({
+
+            "agent":
+                "observation_agent",
+
+            "error":
+                str(e)
+        })
 
         return {
 
-            "agent_outputs": agent_outputs,
+            "agent_outputs":
+                agent_outputs,
 
-            "errors": [
+            "errors":
+                errors,
+
+            "execution_error":
                 str(e)
-            ]
         }

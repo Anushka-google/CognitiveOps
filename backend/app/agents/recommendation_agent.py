@@ -11,19 +11,22 @@ def recommendation_agent(
     state: AgentState
 ):
     """
-    Processes generated recommendations
-    and returns a structured agent output.
+    Processes generated workflow insights
+    and returns structured recommendation output.
 
-    Agent responsibilities:
-    - Process insights
+    Responsibilities:
+    - Process generated insights
+    - Identify high-priority recommendations
     - Mark high-priority recommendations
-    - Return predictable output structure
+    - Preserve existing agent outputs
+    - Return predictable state structure
 
-    It does not:
+    Does NOT:
     - call external APIs
     - call Gemini
     - retrieve evidence
-    - modify workflow data
+    - modify Jira
+    - modify workflow source data
     """
 
     logger.info(
@@ -34,52 +37,192 @@ def recommendation_agent(
 
     try:
 
-        # ==========================================
-        # Read existing insights
-        # ==========================================
+        # =====================================================
+        # 1. READ EXISTING INSIGHTS
+        # =====================================================
 
         insights = state.get(
             "insights",
             []
         )
 
+        if not isinstance(
+            insights,
+            list
+        ):
+
+            logger.warning(
+                "INVALID INSIGHTS TYPE | "
+                "expected=list | actual=%s",
+                type(insights).__name__
+            )
+
+            insights = []
+
+        logger.info(
+            "RECOMMENDATION INPUT | "
+            "insights=%s",
+            len(insights)
+        )
+
         high_priority_count = 0
 
-        # ==========================================
-        # Process recommendations
-        # ==========================================
+        processed_count = 0
+
+        skipped_count = 0
+
+        # =====================================================
+        # 2. PROCESS EACH INSIGHT
+        # =====================================================
 
         for insight in insights:
 
-            if (
-                insight.severity == "High"
-                and insight.recommendation
+            # -------------------------------------------------
+            # Safety check
+            # -------------------------------------------------
+
+            if insight is None:
+
+                skipped_count += 1
+
+                logger.warning(
+                    "SKIPPING NULL INSIGHT"
+                )
+
+                continue
+
+            # -------------------------------------------------
+            # Support object-style insights
+            # -------------------------------------------------
+
+            if hasattr(
+                insight,
+                "severity"
             ):
 
-                # Avoid adding the prefix repeatedly
-                if not insight.recommendation.startswith(
+                severity = getattr(
+                    insight,
+                    "severity",
+                    None
+                )
+
+                recommendation = getattr(
+                    insight,
+                    "recommendation",
+                    None
+                )
+
+                is_object = True
+
+            # -------------------------------------------------
+            # Support dictionary-style insights
+            # -------------------------------------------------
+
+            elif isinstance(
+                insight,
+                dict
+            ):
+
+                severity = insight.get(
+                    "severity"
+                )
+
+                recommendation = insight.get(
+                    "recommendation"
+                )
+
+                is_object = False
+
+            # -------------------------------------------------
+            # Unknown structure
+            # -------------------------------------------------
+
+            else:
+
+                skipped_count += 1
+
+                logger.warning(
+                    "SKIPPING INVALID INSIGHT | "
+                    "type=%s",
+                    type(insight).__name__
+                )
+
+                continue
+
+            processed_count += 1
+
+            # =================================================
+            # 3. NORMALIZE SEVERITY
+            # =================================================
+
+            severity_text = str(
+                severity or ""
+            ).strip().lower()
+
+            # =================================================
+            # 4. PROCESS HIGH PRIORITY
+            # =================================================
+
+            if (
+                severity_text == "high"
+                and recommendation
+            ):
+
+                recommendation_text = str(
+                    recommendation
+                ).strip()
+
+                # ---------------------------------------------
+                # Avoid duplicate prefix
+                # ---------------------------------------------
+
+                if not recommendation_text.startswith(
                     "[HIGH PRIORITY]"
                 ):
 
-                    insight.recommendation = (
+                    recommendation_text = (
                         "[HIGH PRIORITY] "
-                        + insight.recommendation
+                        + recommendation_text
                     )
+
+                    # -----------------------------------------
+                    # Update original insight
+                    # -----------------------------------------
+
+                    if is_object:
+
+                        setattr(
+                            insight,
+                            "recommendation",
+                            recommendation_text
+                        )
+
+                    else:
+
+                        insight[
+                            "recommendation"
+                        ] = recommendation_text
 
                 high_priority_count += 1
 
-        # ==========================================
-        # Execution time
-        # ==========================================
+                logger.info(
+                    "HIGH PRIORITY RECOMMENDATION | "
+                    "severity=%s",
+                    severity
+                )
+
+        # =====================================================
+        # 5. EXECUTION TIME
+        # =====================================================
 
         execution_time = (
             time.perf_counter()
             - start_time
         )
 
-        # ==========================================
-        # Structured Agent Output
-        # ==========================================
+        # =====================================================
+        # 6. STRUCTURED AGENT OUTPUT
+        # =====================================================
 
         recommendation_output = {
 
@@ -89,6 +232,14 @@ def recommendation_agent(
                 len(insights)
             ),
 
+            "processed_count": (
+                processed_count
+            ),
+
+            "skipped_count": (
+                skipped_count
+            ),
+
             "high_priority_count": (
                 high_priority_count
             ),
@@ -96,47 +247,99 @@ def recommendation_agent(
             "output": insights
         }
 
-        # ==========================================
-        # Logging
-        # ==========================================
+        # =====================================================
+        # 7. PRESERVE PREVIOUS AGENT OUTPUTS
+        # =====================================================
+
+        agent_outputs = dict(
+            state.get(
+                "agent_outputs",
+                {}
+            )
+        )
+
+        agent_outputs[
+            "recommendation_agent"
+        ] = {
+
+            "agent": (
+                "recommendation_agent"
+            ),
+
+            "status": "success",
+
+            "output": {
+
+                "result_count": (
+                    len(insights)
+                ),
+
+                "processed_count": (
+                    processed_count
+                ),
+
+                "skipped_count": (
+                    skipped_count
+                ),
+
+                "high_priority_count": (
+                    high_priority_count
+                )
+            },
+
+            "execution_time": (
+                execution_time
+            ),
+
+            "error": None
+        }
+
+        # =====================================================
+        # 8. LOGGING
+        # =====================================================
 
         logger.info(
             "AGENT END | recommendation_agent | "
             "execution_time=%.2fs | "
+            "insights=%s | "
             "high_priority=%s",
             execution_time,
+            len(insights),
+            high_priority_count
+        )
+
+        logger.info(
+            "RECOMMENDATION SUMMARY | "
+            "processed=%s | "
+            "skipped=%s | "
+            "high_priority=%s",
+            processed_count,
+            skipped_count,
             high_priority_count
         )
 
         logger.info(
             "STRUCTURED OUTPUT | "
             "agent=recommendation_agent | "
-            "status=%s | "
+            "status=success | "
             "result_count=%s",
-            recommendation_output["status"],
-            recommendation_output["result_count"]
+            len(insights)
         )
 
-        # ==========================================
-        # Return State Update
-        # ==========================================
+        # =====================================================
+        # 9. RETURN STATE UPDATE
+        # =====================================================
 
         return {
 
             "insights": insights,
 
-            "agent_outputs": {
-
-                **state.get(
-                    "agent_outputs",
-                    {}
-                ),
-
-                "recommendation_agent": (
-                    recommendation_output
-                )
-            }
+            "agent_outputs": agent_outputs
         }
+
+    # =========================================================
+    # 10. ERROR HANDLING
+    # =========================================================
 
     except Exception as e:
 
@@ -151,49 +354,66 @@ def recommendation_agent(
             execution_time
         )
 
-        # ==========================================
-        # Structured Error Output
-        # ==========================================
+        # -----------------------------------------------------
+        # Preserve existing agent outputs
+        # -----------------------------------------------------
+
+        agent_outputs = dict(
+            state.get(
+                "agent_outputs",
+                {}
+            )
+        )
 
         error_output = {
 
-            "status": "error",
+            "agent": (
+                "recommendation_agent"
+            ),
 
-            "result_count": 0,
+            "status": "failed",
 
-            "high_priority_count": 0,
+            "output": {
 
-            "output": [],
+                "result_count": 0,
+
+                "high_priority_count": 0
+            },
+
+            "execution_time": (
+                execution_time
+            ),
 
             "error": str(e)
         }
 
+        agent_outputs[
+            "recommendation_agent"
+        ] = error_output
+
+        # -----------------------------------------------------
+        # Preserve existing errors
+        # -----------------------------------------------------
+
+        errors = list(
+            state.get(
+                "errors",
+                []
+            )
+        )
+
+        errors.append({
+
+            "agent": (
+                "recommendation_agent"
+            ),
+
+            "error": str(e)
+        })
+
         return {
 
-            "agent_outputs": {
+            "agent_outputs": agent_outputs,
 
-                **state.get(
-                    "agent_outputs",
-                    {}
-                ),
-
-                "recommendation_agent": (
-                    error_output
-                )
-            },
-
-            "errors": [
-
-                *state.get(
-                    "errors",
-                    []
-                ),
-
-                {
-                    "agent": (
-                        "recommendation_agent"
-                    ),
-                    "error": str(e)
-                }
-            ]
+            "errors": errors
         }

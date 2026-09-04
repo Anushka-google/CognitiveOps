@@ -69,6 +69,18 @@ class ExecutionResponse(BaseModel):
 
     proposed_action: dict[str, Any] | None = None
 
+    # ------------------------------------------
+    # HITL / Audit information
+    # ------------------------------------------
+
+    approved_at: str | None = None
+
+    rejected_at: str | None = None
+
+    termination_reason: str | None = None
+
+    approved_action_result: dict[str, Any] | None = None
+
     class Config:
 
         from_attributes = True
@@ -176,6 +188,30 @@ def _build_execution_response(
         "proposed_action":
             memory.get(
                 "proposed_action"
+            ),
+
+        # --------------------------------------
+        # HITL / Audit information
+        # --------------------------------------
+
+        "approved_at":
+            memory.get(
+                "approved_at"
+            ),
+
+        "rejected_at":
+            memory.get(
+                "rejected_at"
+            ),
+
+        "termination_reason":
+            memory.get(
+                "termination_reason"
+            ),
+
+        "approved_action_result":
+            memory.get(
+                "approved_action_result"
             )
     }
 
@@ -374,7 +410,9 @@ def approve_execution(
     if execution is None:
 
         raise HTTPException(
+
             status_code=404,
+
             detail="Execution not found"
         )
 
@@ -468,10 +506,12 @@ def approve_execution(
     # ==========================================
 
     logger.warning(
+
         "HUMAN APPROVAL RECEIVED | "
         "execution_id=%s | "
         "action=%s | "
         "issue=%s",
+
         execution_id,
         action_type,
         issue_key
@@ -482,6 +522,7 @@ def approve_execution(
         jira_service = JiraService()
 
         result = (
+
             jira_service
             .update_issue_priority(
                 issue_key,
@@ -492,8 +533,10 @@ def approve_execution(
     except Exception as e:
 
         logger.exception(
+
             "APPROVED JIRA ACTION FAILED | "
             "execution_id=%s",
+
             execution_id
         )
 
@@ -565,10 +608,12 @@ def approve_execution(
     )
 
     logger.info(
+
         "APPROVED ACTION EXECUTED | "
         "execution_id=%s | "
         "issue=%s | "
         "priority=%s",
+
         execution_id,
         issue_key,
         priority_name
@@ -624,7 +669,9 @@ def reject_execution(
     if execution is None:
 
         raise HTTPException(
+
             status_code=404,
+
             detail="Execution not found"
         )
 
@@ -686,8 +733,10 @@ def reject_execution(
     db.commit()
 
     logger.warning(
+
         "HUMAN ACTION REJECTED | "
         "execution_id=%s",
+
         execution_id
     )
 
@@ -739,7 +788,9 @@ def get_execution(
     if execution is None:
 
         raise HTTPException(
+
             status_code=404,
+
             detail="Execution not found"
         )
 

@@ -14,6 +14,7 @@ class RiskScoringService:
             # ------------------------
             # Days Waiting
             # ------------------------
+
             score += min(
                 workflow.days_waiting * 5,
                 40
@@ -22,6 +23,7 @@ class RiskScoringService:
             # ------------------------
             # Priority
             # ------------------------
+
             priority = (
                 workflow.priority.lower()
                 if workflow.priority
@@ -46,6 +48,7 @@ class RiskScoringService:
             # ------------------------
             # Status
             # ------------------------
+
             status = (
                 workflow.status.lower()
                 if workflow.status
@@ -64,6 +67,7 @@ class RiskScoringService:
             # ------------------------
             # Unassigned
             # ------------------------
+
             assignee = (
                 workflow.assignee.lower()
                 if workflow.assignee
@@ -73,11 +77,15 @@ class RiskScoringService:
             if assignee == "unassigned":
                 score += 10
 
-            score = min(score, 100)
+            score = min(
+                score,
+                100
+            )
 
             # ------------------------
             # Risk Level
             # ------------------------
+
             if score >= 70:
                 level = "High"
 
@@ -90,17 +98,21 @@ class RiskScoringService:
             # ------------------------
             # Recommendation
             # ------------------------
+
             if level == "High":
+
                 recommendation = (
                     "Immediate attention required"
                 )
 
             elif level == "Medium":
+
                 recommendation = (
                     "Monitor closely"
                 )
 
             else:
+
                 recommendation = (
                     "No action needed"
                 )
@@ -146,15 +158,11 @@ class RiskScoringService:
         average_risk = round(
 
             sum(
-
                 r["risk_score"]
-
                 for r in results
-
             ) / len(results),
 
             2
-
         )
 
         return {
