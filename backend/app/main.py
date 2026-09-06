@@ -6,26 +6,18 @@ from fastapi.middleware.cors import (
     CORSMiddleware
 )
 
-from app.api.intent import (
-    router as intent_router
-)
-
-from app.api.risk import (
-    router as risk_router
-)
-
-from app.api.workflow import (
-    router as workflow_router
-)
-
-from app.api.execution import (
-    router as execution_router
+from app.services.trace_service import (
+    trace_log
 )
 
 from app.services.scheduler_service import (
     scheduler
 )
 
+
+# =========================================================
+# LOGGING CONFIGURATION
+# =========================================================
 
 logging.basicConfig(
 
@@ -45,81 +37,118 @@ logger = logging.getLogger(
 )
 
 
-logger.info(
-    "MAIN FILE LOADED"
+# =========================================================
+# APPLICATION
+# =========================================================
+
+app = FastAPI(
+    title="CognitiveOps",
+    description=(
+        "AI Process Intelligence "
+        "and Agentic Workflow Automation"
+    ),
+    version="1.0.0"
 )
 
 
-app = FastAPI()
-
+# =========================================================
+# CORS
+# =========================================================
 
 app.add_middleware(
-
     CORSMiddleware,
 
-    allow_origins=["*"],
+    allow_origins=[
+        "http://localhost:5173"
+    ],
 
-    allow_methods=["*"],
+    allow_credentials=True,
 
-    allow_headers=["*"]
+    allow_methods=[
+        "*"
+    ],
+
+    allow_headers=[
+        "*"
+    ]
 )
 
 
-# =====================================================
+# =========================================================
 # ROUTERS
-# =====================================================
+# =========================================================
 
-app.include_router(
-    workflow_router,
-    prefix="/api"
-)
-
-app.include_router(
-    intent_router,
-    prefix="/api"
-)
-
-app.include_router(
-    risk_router,
-    prefix="/api"
-)
-
-app.include_router(
-    execution_router,
-    prefix="/api"
-)
+# Keep your existing router imports and
+# include_router() calls here exactly as
+# they currently exist in your project.
 
 
-logger.info(
-    "ROUTERS INCLUDED"
-)
-
-
-# =====================================================
-# SCHEDULER
-# =====================================================
-
-@app.on_event(
-    "startup"
-)
-def start_scheduler():
-
-    scheduler.start()
-
-    logger.info(
-        "SCHEDULER STARTED"
-    )
-
-
-# =====================================================
+# =========================================================
 # ROOT
-# =====================================================
+# =========================================================
 
 @app.get("/")
 def root():
 
     return {
-
         "message":
-            "CognitiveOps Backend Running"
+            "CognitiveOps API is running."
     }
+
+
+# =========================================================
+# STARTUP
+# =========================================================
+
+@app.on_event(
+    "startup"
+)
+def startup_event():
+
+    trace_log(
+        "APPLICATION_START"
+    )
+
+    logger.info(
+        "CognitiveOps application started."
+    )
+
+    if not scheduler.running:
+
+        scheduler.start()
+
+        trace_log(
+            "SCHEDULER_STARTED"
+        )
+
+        logger.info(
+            "Scheduler Started"
+        )
+
+
+# =========================================================
+# SHUTDOWN
+# =========================================================
+
+@app.on_event(
+    "shutdown"
+)
+def shutdown_event():
+
+    if scheduler.running:
+
+        scheduler.shutdown(
+            wait=False
+        )
+
+        logger.info(
+            "Scheduler Stopped"
+        )
+
+        trace_log(
+            "SCHEDULER_STOPPED"
+        )
+
+    trace_log(
+        "APPLICATION_STOP"
+    )

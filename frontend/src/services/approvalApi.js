@@ -3,31 +3,63 @@ const API_URL =
   "http://localhost:8000";
 
 
+// =====================================================
+// Get Pending Human Approval
+// =====================================================
+
+export async function getPendingApproval() {
+
+  const response =
+    await fetch(
+      `${API_URL}/api/executions/pending-approval`
+    );
+
+
+  const data =
+    await response.json();
+
+
+  if (!response.ok) {
+
+    throw new Error(
+      data.detail ||
+      "Failed to fetch pending approval"
+    );
+
+  }
+
+
+  return data;
+}
+
+
+// =====================================================
+// Submit Approval Decision
+// =====================================================
+
 export async function submitApproval(
-  issueKey,
+  executionId,
   decision
 ) {
 
-  const response = await fetch(
-    `${API_URL}/api/workflow/approval`,
-    {
-      method: "POST",
+  const action =
+    decision === "approve"
+      ? "approve"
+      : "reject";
 
-      headers: {
-        "Content-Type":
-          "application/json",
-      },
 
-      body: JSON.stringify({
+  const response =
+    await fetch(
+      `${API_URL}/api/executions/${executionId}/${action}`,
+      {
+        method: "POST",
 
-        issue_key:
-          issueKey,
-
-        decision:
-          decision
-      })
-    }
-  );
+        headers: {
+          "Content-Type":
+            "application/json"
+        }
+      }
+    );
 
 
   const data =
@@ -40,8 +72,41 @@ export async function submitApproval(
       data.detail ||
       "Approval request failed."
     );
+
   }
 
 
   return data;
+}
+
+
+// =====================================================
+// Approve Execution
+// =====================================================
+
+export async function approveExecution(
+  executionId
+) {
+
+  return await submitApproval(
+    executionId,
+    "approve"
+  );
+
+}
+
+
+// =====================================================
+// Reject Execution
+// =====================================================
+
+export async function rejectExecution(
+  executionId
+) {
+
+  return await submitApproval(
+    executionId,
+    "reject"
+  );
+
 }

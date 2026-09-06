@@ -1,3 +1,6 @@
+from app.config import LLM_MAX_CONTEXT_LENGTH
+
+
 class ContextService:
     """Builds structured context for LLM analysis."""
 
@@ -252,11 +255,6 @@ class ContextService:
 
                 for memory in long_term_memory:
 
-                    # Memory is normally stored
-                    # as JSON text in PostgreSQL.
-                    # Keep it intact so the LLM
-                    # can use the previous execution.
-
                     if isinstance(
                         memory,
                         str
@@ -320,6 +318,17 @@ class ContextService:
         final_context = "\n\n".join(
             context_parts
         )
+
+        # --------------------------------
+        # Context Size Protection
+        # --------------------------------
+
+        if len(final_context) > LLM_MAX_CONTEXT_LENGTH:
+
+            final_context = (
+                final_context[:LLM_MAX_CONTEXT_LENGTH]
+                + "\n\n[CONTEXT TRUNCATED DUE TO SIZE LIMIT]"
+            )
 
         # --------------------------------
         # Debug

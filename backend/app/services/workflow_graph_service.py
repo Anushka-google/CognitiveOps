@@ -1,41 +1,12 @@
 import time
 import json
+import logging
 
 from datetime import datetime
 
-from langgraph.graph import (
-    StateGraph,
-    START,
-    END
-)
-
-from app.agents.state import (
-    AgentState
-)
-
-from app.agents.planner_agent import (
-    planner_agent
-)
-
-from app.agents.plan_executor import (
-    plan_executor
-)
-
-from app.agents.observation_agent import (
-    observation_agent
-)
-
-from app.agents.reasoning_agent import (
-    reasoning_agent
-)
-
-from app.agents.recommendation_agent import (
-    recommendation_agent
-)
 from app.agents.workflow_graph import (
     workflow_graph
 )
-
 
 from app.db.database import (
     SessionLocal
@@ -45,6 +16,15 @@ from app.models.execution import (
     WorkflowExecution
 )
 
+from app.services.trace_service import (
+    set_execution_id,
+    trace_log,
+    clear_trace_context
+)
+
+
+logger = logging.getLogger(__name__)
+
 
 class WorkflowGraphService:
 
@@ -53,263 +33,503 @@ class WorkflowGraphService:
         workflows
     ):
 
-        print(
-            "=================================="
+        logger.info(
+            "WORKFLOW GRAPH SERVICE START"
         )
 
-        print(
-            "WORKFLOW GRAPH SERVICE"
+        start_time = (
+            time.perf_counter()
         )
-
-        print(
-            "=================================="
-        )
-
-        # --------------------------------
-        # Start execution timer
-        # --------------------------------
-
-        start_time = time.perf_counter()
-
-        # --------------------------------
-        # Database session
-        # --------------------------------
 
         db = SessionLocal()
 
+        execution = None
+
         try:
 
-            # =================================
-            # Long-Term Memory
-            # Retrieve previous executions
-            # =================================
+            # =================================================
+            # CREATE EXECUTION RECORD FIRST
+            # =================================================
+
+            execution = WorkflowExecution(
+
+                started_at=
+                    datetime.utcnow(),
+
+                total_issues=
+                    0,
+
+                high_severity_issues=
+                    0,
+
+                workflow_health=
+                    None,
+
+                memory=
+                    None
+            )
+
+            db.add(
+                execution
+            )
+
+            # -------------------------------------------------
+            # Flush creates the DB row and assigns its ID
+            # without committing the transaction.
+            # -------------------------------------------------
+
+            db.flush()
+
+            execution_id = (
+                execution.id
+            )
+
+            # =================================================
+            # SET TRACE CONTEXT
+            # =================================================
+
+            set_execution_id(
+                execution_id
+            )
+
+            trace_log(
+                "EXECUTION_START",
+                (
+                    f"workflow_count="
+                    f"{len(workflows)}"
+                )
+            )
+
+            logger.info(
+                "EXECUTION CREATED | "
+                "execution_id=%s",
+                execution_id
+            )
+
+            # =================================================
+            # LONG-TERM MEMORY
+            # =================================================
 
             previous_executions = (
+
                 db.query(
                     WorkflowExecution
                 )
+
+                .filter(
+                    WorkflowExecution.id
+                    != execution_id
+                )
+
                 .order_by(
                     WorkflowExecution.id.desc()
                 )
-                .limit(5)
+
+                .limit(
+                    5
+                )
+
                 .all()
             )
 
             long_term_memory = []
 
-            for execution in previous_executions:
+            for previous_execution in (
+                previous_executions
+            ):
 
-                if execution.memory:
+                if previous_execution.memory:
 
                     long_term_memory.append(
-                        execution.memory
+                        previous_execution.memory
                     )
 
-            print(
+            logger.info(
                 "LONG-TERM MEMORY | "
-                "RETRIEVED | "
-                f"count={len(long_term_memory)}"
+                "RETRIEVED | count=%s",
+                len(long_term_memory)
             )
 
-            # --------------------------------
-            # Initial LangGraph state
-            # --------------------------------
+            trace_log(
+                "LONG_TERM_MEMORY_RETRIEVED",
+                (
+                    f"count={len(long_term_memory)}"
+                )
+            )
+
+            # =================================================
+            # INITIAL LANGGRAPH STATE
+            # =================================================
 
             initial_state = {
 
-                # =================================
+                # ---------------------------------------------
+                # Execution identity
+                # ---------------------------------------------
+
+                "execution_id":
+                    execution_id,
+
+                # ---------------------------------------------
                 # Core Workflow Data
-                # =================================
+                # ---------------------------------------------
 
-                "workflows": workflows,
+                "workflows":
+                    workflows,
 
-                "insights": [],
+                "insights":
+                    [],
 
-                # =================================
+                # ---------------------------------------------
                 # User / Intent
-                # =================================
+                # ---------------------------------------------
 
-                "user_goal": (
-                    "Analyze the workflow for "
-                    "delays, bottlenecks, blockers, "
-                    "and operational risks."
-                ),
+                "user_goal":
+                    (
+                        "Analyze the workflow for "
+                        "delays, bottlenecks, blockers, "
+                        "and operational risks."
+                    ),
 
-                "intent": "analyze_workflow",
+                "intent":
+                    "analyze_workflow",
 
-                # =================================
+                # ---------------------------------------------
                 # Planner
-                # =================================
+                # ---------------------------------------------
 
-                "plan": [],
+                "plan":
+                    [],
 
-                "current_step": 0,
+                "current_step":
+                    0,
 
-                # =================================
-                # Human-in-the-Loop
-                # =================================
+                # ---------------------------------------------
+                # HITL
+                # ---------------------------------------------
 
-                "proposed_action": {},
+                "proposed_action":
+                    {},
 
-                "approval_required": False,
+                "approval_required":
+                    False,
 
-                "approval_status": None,
+                "approval_status":
+                    None,
 
-                "approval_reason": None,
+                "approval_reason":
+                    None,
 
-                # =================================
-                # Shared Agent State
-                # =================================
+                # ---------------------------------------------
+                # Shared State
+                # ---------------------------------------------
 
-                "tool_results": {},
+                "tool_results":
+                    {},
 
-                "evidence": {},
+                "evidence":
+                    {},
 
-                "agent_outputs": {},
+                "agent_outputs":
+                    {},
 
-                "errors": [],
+                "errors":
+                    [],
 
-                "final_answer": None,
+                "final_answer":
+                    None,
 
-                # =================================
+                # ---------------------------------------------
                 # Long-Term Memory
-                # =================================
+                # ---------------------------------------------
 
-                "long_term_memory": (
-                    long_term_memory
-                ),
+                "long_term_memory":
+                    long_term_memory,
 
-                # =================================
+                # ---------------------------------------------
                 # Workflow Analysis
-                # =================================
+                # ---------------------------------------------
 
-                "workflow_summary": None,
+                "workflow_summary":
+                    None,
 
-                "workflow_health": None,
+                "workflow_health":
+                    None,
 
-                "total_issues": 0,
+                "total_issues":
+                    0,
 
-                "high_severity_issues": 0,
+                "high_severity_issues":
+                    0,
 
-                "delayed_workflows": [],
+                "delayed_workflows":
+                    [],
 
-                # =================================
+                # ---------------------------------------------
                 # Evidence
-                # =================================
+                # ---------------------------------------------
 
-                "jira_evidence": [],
+                "jira_evidence":
+                    [],
 
-                "slack_evidence": [],
+                "slack_evidence":
+                    [],
 
-                "combined_evidence": {},
+                "combined_evidence":
+                    {},
 
-                # =================================
+                # ---------------------------------------------
                 # Observation
-                # =================================
+                # ---------------------------------------------
 
-                "observation": {},
+                "observation":
+                    {},
 
-                "observations": [],
+                "observations":
+                    [],
 
-                "self_correction_required": False,
+                "self_correction_required":
+                    False,
 
-                "self_correction_attempts": 0,
+                "self_correction_attempts":
+                    0,
 
-                # =================================
-                # Termination Control
-                # =================================
+                # ---------------------------------------------
+                # Termination
+                # ---------------------------------------------
 
-                "iteration_count": 0,
+                "iteration_count":
+                    0,
 
-                "goal_completed": False,
+                "goal_completed":
+                    False,
 
-                "no_useful_action": False,
+                "no_useful_action":
+                    False,
 
-                "termination_reason": None,
+                "termination_reason":
+                    None,
 
-                # =================================
+                # ---------------------------------------------
                 # Execution
-                # =================================
+                # ---------------------------------------------
 
-                "execution_status": None,
+                "execution_status":
+                    None,
 
-                "execution_error": None,
+                "execution_error":
+                    None,
 
-                # =================================
-                # Jira Issue Retrieval
-                # =================================
+                # ---------------------------------------------
+                # Jira
+                # ---------------------------------------------
 
-                "issue_key": None
+                "issue_key":
+                    None
             }
 
-            print(
-                "LONG-TERM MEMORY | "
-                "AVAILABLE TO WORKFLOW"
+            trace_log(
+                "LANGGRAPH_START"
             )
 
-            # --------------------------------
-            # Execute LangGraph workflow
-            # --------------------------------
+            # =================================================
+            # EXECUTE LANGGRAPH
+            # =================================================
 
-            result = workflow_graph.invoke(
-                initial_state
+            result = (
+                workflow_graph.invoke(
+                    initial_state
+                )
             )
 
-            # --------------------------------
-            # Calculate execution time
-            # --------------------------------
+            trace_log(
+                "LANGGRAPH_END"
+            )
+
+            # =================================================
+            # EXECUTION TIME
+            # =================================================
 
             execution_time = (
+
                 time.perf_counter()
                 - start_time
             )
 
-            print(
-                f"WORKFLOW EXECUTION TIME: "
-                f"{execution_time:.2f}s"
+            logger.info(
+                "WORKFLOW EXECUTION TIME | %.2fs",
+                execution_time
             )
 
-            # =================================
-            # Create Long-Term Memory Snapshot
-            # =================================
+            # =================================================
+            # HITL STATE
+            # =================================================
+
+            execution_status = (
+                result.get(
+                    "execution_status"
+                )
+            )
+
+            approval_required = (
+                result.get(
+                    "approval_required"
+                )
+            )
+
+            approval_status = (
+                result.get(
+                    "approval_status"
+                )
+            )
+
+            proposed_action = (
+                result.get(
+                    "proposed_action"
+                )
+            )
+
+            logger.info(
+                "HITL STATE | "
+                "approval_required=%s | "
+                "approval_status=%s | "
+                "execution_status=%s",
+
+                approval_required,
+
+                approval_status,
+
+                execution_status
+            )
+
+            trace_log(
+                "HITL_STATE",
+                (
+                    f"approval_required={approval_required} "
+                    f"approval_status={approval_status} "
+                    f"execution_status={execution_status}"
+                )
+            )
+
+            # =================================================
+            # COMPLETION
+            # =================================================
+
+            if (
+                execution_status
+                ==
+                "awaiting_human_approval"
+            ):
+
+                completed_at = None
+
+            else:
+
+                completed_at = (
+                    datetime.utcnow()
+                )
+
+            # =================================================
+            # MEMORY SNAPSHOT
+            # =================================================
 
             memory_snapshot = {
 
-                "workflow_health": (
+                "workflow_health":
                     result.get(
                         "workflow_health"
-                    )
-                ),
+                    ),
 
-                "total_issues": (
+                "total_issues":
                     result.get(
                         "total_issues",
                         0
-                    )
-                ),
+                    ),
 
-                "high_severity_issues": (
+                "high_severity_issues":
                     result.get(
                         "high_severity_issues",
                         0
-                    )
-                ),
+                    ),
 
-                "insights": (
+                "insights":
                     result.get(
                         "insights",
                         []
-                    )
-                ),
+                    ),
 
-                "execution_time": (
-                    execution_time
-                ),
+                "execution_id":
+                    execution_id,
 
-                "created_at": (
+                "execution_time":
+                    execution_time,
+
+                "created_at":
                     datetime.utcnow()
-                    .isoformat()
-                )
+                    .isoformat(),
+
+                "issue_key":
+                    result.get(
+                        "issue_key"
+                    ),
+
+                "proposed_action":
+                    result.get(
+                        "proposed_action",
+                        {}
+                    ),
+
+                "approval_required":
+                    result.get(
+                        "approval_required",
+                        False
+                    ),
+
+                "approval_status":
+                    result.get(
+                        "approval_status"
+                    ),
+
+                "approval_reason":
+                    result.get(
+                        "approval_reason"
+                    ),
+
+                "execution_status":
+                    result.get(
+                        "execution_status"
+                    ),
+
+                "execution_error":
+                    result.get(
+                        "execution_error"
+                    ),
+
+                "goal_completed":
+                    result.get(
+                        "goal_completed",
+                        False
+                    ),
+
+                "termination_reason":
+                    result.get(
+                        "termination_reason"
+                    ),
+
+                "approved_at":
+                    result.get(
+                        "approved_at"
+                    ),
+
+                "rejected_at":
+                    result.get(
+                        "rejected_at"
+                    ),
+
+                "approved_action_result":
+                    result.get(
+                        "approved_action_result"
+                    )
             }
 
             memory_text = json.dumps(
@@ -317,53 +537,45 @@ class WorkflowGraphService:
                 default=str
             )
 
-            print(
-                "LONG-TERM MEMORY | "
-                "SNAPSHOT CREATED"
-            )
+            # =================================================
+            # UPDATE EXISTING EXECUTION
+            # =================================================
 
-            # --------------------------------
-            # Save execution to database
-            # --------------------------------
-
-            execution = WorkflowExecution(
-
-                workflow_health=(
-                    result.get(
-                        "workflow_health"
-                    )
-                ),
-
-                total_issues=(
-                    result.get(
-                        "total_issues",
-                        0
-                    )
-                ),
-
-                high_severity_issues=(
-                    result.get(
-                        "high_severity_issues",
-                        0
-                    )
-                ),
-
-                execution_time=(
-                    execution_time
-                ),
-
-                completed_at=(
-                    datetime.utcnow()
-                ),
-
-                memory=(
-                    memory_text
+            execution.workflow_health = (
+                result.get(
+                    "workflow_health"
                 )
             )
 
-            db.add(
-                execution
+            execution.total_issues = (
+                result.get(
+                    "total_issues",
+                    0
+                )
             )
+
+            execution.high_severity_issues = (
+                result.get(
+                    "high_severity_issues",
+                    0
+                )
+            )
+
+            execution.execution_time = (
+                execution_time
+            )
+
+            execution.completed_at = (
+                completed_at
+            )
+
+            execution.memory = (
+                memory_text
+            )
+
+            # =================================================
+            # COMMIT
+            # =================================================
 
             db.commit()
 
@@ -371,20 +583,36 @@ class WorkflowGraphService:
                 execution
             )
 
-            print(
-                "WORKFLOW EXECUTION SAVED"
+            # =================================================
+            # FINAL TRACE
+            # =================================================
+
+            trace_log(
+                "EXECUTION_END",
+                (
+                    f"status={execution_status} "
+                    f"execution_time={execution_time:.2f}s"
+                )
             )
 
-            print(
-                f"EXECUTION ID: "
-                f"{execution.id}"
+            logger.info(
+                "WORKFLOW EXECUTION SAVED | "
+                "execution_id=%s",
+
+                execution.id
             )
 
-            print(
-                "LONG-TERM MEMORY | "
-                f"SAVED | execution_id="
-                f"{execution.id}"
+            # =================================================
+            # RETURN EXECUTION ID
+            # =================================================
+
+            result = dict(
+                result
             )
+
+            result[
+                "execution_id"
+            ] = execution.id
 
             return result
 
@@ -392,9 +620,15 @@ class WorkflowGraphService:
 
             db.rollback()
 
-            print(
-                "DATABASE SAVE ERROR:",
+            logger.exception(
+                "WORKFLOW EXECUTION FAILED | %s",
                 e
+            )
+
+            trace_log(
+                "EXECUTION_FAILED",
+                str(e),
+                logging.ERROR
             )
 
             raise
@@ -402,3 +636,9 @@ class WorkflowGraphService:
         finally:
 
             db.close()
+
+            clear_trace_context()
+
+            logger.info(
+                "WORKFLOW GRAPH SERVICE END"
+            )

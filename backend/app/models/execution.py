@@ -1,19 +1,18 @@
 from datetime import datetime
+import json
 
-from sqlalchemy import Column
-from sqlalchemy import Integer
-from sqlalchemy import String
-from sqlalchemy import DateTime
-from sqlalchemy import Float
+from sqlalchemy import (
+    Column,
+    Integer,
+    String,
+    DateTime,
+    Float
+)
 
 from app.db.database import Base
 
 
 class WorkflowExecution(Base):
-    """
-    Stores the history of each CognitiveOps
-    workflow analysis execution.
-    """
 
     __tablename__ = "workflow_executions"
 

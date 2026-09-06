@@ -19,6 +19,39 @@ from app.services.llm_service import (
 logger = logging.getLogger(__name__)
 
 
+# ==================================================
+# Native Structured Output Schema
+# ==================================================
+
+INTENT_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "intent": {
+            "type": "string",
+            "enum": [
+                "analyze_workflow",
+                "find_bottleneck",
+                "explain_delay",
+                "recommend_action",
+                "retrieve_jira_issue",
+                "unknown"
+            ]
+        },
+        "confidence": {
+            "type": "number"
+        },
+        "reasoning": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "intent",
+        "confidence",
+        "reasoning"
+    ]
+}
+
+
 class IntentService:
     """
     Service responsible for identifying
@@ -42,7 +75,10 @@ class IntentService:
 
             response_text = generate_text(
                 SYSTEM_PROMPT,
-                user_prompt
+                user_prompt,
+                response_schema=(
+                    INTENT_RESPONSE_SCHEMA
+                )
             )
 
             result = self._parse_response(
@@ -72,6 +108,9 @@ class IntentService:
                 )
             )
 
+    # ==================================================
+    # Parse Intent Response
+    # ==================================================
 
     def _parse_response(
         self,
@@ -107,22 +146,57 @@ class IntentService:
                 json_str
             )
 
-            return IntentResult(
-                intent=IntentType(
-                    data.get(
-                        "intent",
-                        "unknown"
-                    )
-                ),
-                confidence=float(
-                    data.get(
-                        "confidence",
-                        0.0
-                    )
-                ),
-                reasoning=data.get(
-                    "reasoning"
+            # ------------------------------------------
+            # Validate Intent
+            # ------------------------------------------
+
+            intent = IntentType(
+                data.get(
+                    "intent",
+                    "unknown"
                 )
+            )
+
+            # ------------------------------------------
+            # Validate Confidence
+            # ------------------------------------------
+
+            confidence = float(
+                data.get(
+                    "confidence",
+                    0.0
+                )
+            )
+
+            if not 0.0 <= confidence <= 1.0:
+
+                raise ValueError(
+                    "Confidence must be between "
+                    "0.0 and 1.0."
+                )
+
+            # ------------------------------------------
+            # Validate Reasoning
+            # ------------------------------------------
+
+            reasoning = data.get(
+                "reasoning"
+            )
+
+            if reasoning is not None:
+
+                reasoning = str(
+                    reasoning
+                ).strip()
+
+            # ------------------------------------------
+            # Build Validated Result
+            # ------------------------------------------
+
+            return IntentResult(
+                intent=intent,
+                confidence=confidence,
+                reasoning=reasoning
             )
 
         except (
@@ -143,6 +217,10 @@ class IntentService:
                 )
             )
 
+
+# ==================================================
+# Convenience Function
+# ==================================================
 
 def detect_intent(
     question: str

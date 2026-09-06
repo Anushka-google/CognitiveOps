@@ -19,3 +19,7 @@ LLM_TEMPERATURE = float(
 LLM_MAX_TOKENS = int(
     os.getenv("LLM_MAX_TOKENS", "1000")
 )
+
+LLM_MAX_CONTEXT_LENGTH = int(
+    os.getenv("LLM_MAX_CONTEXT_LENGTH", "12000")
+)

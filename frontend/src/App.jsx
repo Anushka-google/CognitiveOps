@@ -14,6 +14,7 @@ import {
 import {
   getExecutionStats,
   getExecutions,
+  getPendingApproval,
 } from "./services/executionApi";
 
 import Sidebar from "./components/Sidebar";
@@ -53,6 +54,15 @@ function Dashboard() {
   const [
     executionStats,
     setExecutionStats
+  ] = useState(null);
+
+  // =========================================
+  // PENDING HUMAN APPROVAL
+  // =========================================
+
+  const [
+    pendingApproval,
+    setPendingApproval
   ] = useState(null);
 
   const [
@@ -134,6 +144,19 @@ function Dashboard() {
 
 
         // =========================
+        // PENDING HUMAN APPROVAL
+        // =========================
+
+        const pendingApprovalResult =
+          await getPendingApproval();
+
+        console.log(
+          "Pending Approval Response:",
+          pendingApprovalResult
+        );
+
+
+        // =========================
         // SET STATE
         // =========================
 
@@ -151,6 +174,27 @@ function Dashboard() {
 
         setExecutionStats(
           executionStatsResult
+        );
+
+
+        // =========================================
+        // STORE LATEST PENDING APPROVAL
+        // =========================================
+
+        setPendingApproval(
+
+          Array.isArray(
+            pendingApprovalResult
+          )
+
+            ? (
+                pendingApprovalResult.length > 0
+                  ? pendingApprovalResult[0]
+                  : null
+              )
+
+            : pendingApprovalResult
+
         );
 
       }
@@ -427,23 +471,90 @@ function Dashboard() {
         ========================================= */}
 
         {
-          data.approval_required &&
-          data.approval_status === "pending" &&
-          data.proposed_action && (
+          pendingApproval &&
+          pendingApproval.execution_id &&
+          pendingApproval.proposed_action && (
 
             <ApprovalPanel
 
+              executionId={
+                pendingApproval.execution_id
+              }
+
               proposedAction={
-                data.proposed_action
+                pendingApproval.proposed_action
               }
 
               approvalReason={
-                data.approval_reason
+                pendingApproval.approval_reason
               }
 
-              onComplete={() => {
+              onComplete={async () => {
 
-                window.location.reload();
+                try {
+
+                  // =========================
+                  // REFRESH EXECUTION HISTORY
+                  // =========================
+
+                  const updatedExecutions =
+                    await getExecutions(
+                      0,
+                      20
+                    );
+
+
+                  // =========================
+                  // REFRESH EXECUTION STATS
+                  // =========================
+
+                  const updatedStats =
+                    await getExecutionStats();
+
+
+                  // =========================
+                  // REFRESH PENDING APPROVAL
+                  // =========================
+
+                  const updatedPending =
+                    await getPendingApproval();
+
+
+                  setExecutionData(
+                    updatedExecutions
+                  );
+
+                  setExecutionStats(
+                    updatedStats
+                  );
+
+
+                  setPendingApproval(
+
+                    Array.isArray(
+                      updatedPending
+                    )
+
+                      ? (
+                          updatedPending.length > 0
+                            ? updatedPending[0]
+                            : null
+                        )
+
+                      : updatedPending
+
+                  );
+
+                }
+
+                catch (err) {
+
+                  console.error(
+                    "Failed to refresh execution data:",
+                    err
+                  );
+
+                }
 
               }}
 

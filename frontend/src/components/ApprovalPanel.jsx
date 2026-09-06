@@ -1,13 +1,16 @@
-import {
-  useState
-} from "react";
+import { useState } from "react";
 
 import {
   submitApproval
 } from "../services/approvalApi";
 
 
+// =====================================================
+// Approval Panel
+// =====================================================
+
 function ApprovalPanel({
+  executionId,
   proposedAction,
   approvalReason,
   onComplete
@@ -18,20 +21,24 @@ function ApprovalPanel({
     setLoading
   ] = useState(false);
 
+
   const [
     completed,
     setCompleted
   ] = useState(false);
+
 
   const [
     decisionMade,
     setDecisionMade
   ] = useState("");
 
+
   const [
     message,
     setMessage
   ] = useState("");
+
 
   const [
     error,
@@ -39,7 +46,12 @@ function ApprovalPanel({
   ] = useState("");
 
 
+  // =====================================================
+  // Safety Check
+  // =====================================================
+
   if (
+    !executionId ||
     !proposedAction ||
     !proposedAction.target
   ) {
@@ -49,6 +61,10 @@ function ApprovalPanel({
   }
 
 
+  // =====================================================
+  // Handle Approval Decision
+  // =====================================================
+
   async function handleDecision(
     decision
   ) {
@@ -56,11 +72,9 @@ function ApprovalPanel({
     console.log(
       "HITL DECISION:",
       {
-        issueKey:
-          proposedAction.target,
-
-        decision:
-          decision
+        executionId,
+        decision,
+        proposedAction
       }
     );
 
@@ -74,9 +88,13 @@ function ApprovalPanel({
 
     try {
 
+      // =========================================
+      // Send decision to backend
+      // =========================================
+
       const result =
         await submitApproval(
-          proposedAction.target,
+          executionId,
           decision
         );
 
@@ -86,6 +104,10 @@ function ApprovalPanel({
         result
       );
 
+
+      // =========================================
+      // Update UI
+      // =========================================
 
       setDecisionMade(
         decision
@@ -97,24 +119,35 @@ function ApprovalPanel({
 
 
       setMessage(
+
         result.message ||
+
         (
           decision === "approve"
+
             ? "Action approved successfully."
+
             : "Action rejected successfully."
+
         )
+
       );
 
 
+      // =========================================
+      // Refresh parent dashboard
+      // =========================================
+
       if (onComplete) {
 
-        onComplete(
+        await onComplete(
           result
         );
 
       }
 
     }
+
     catch (err) {
 
       console.error(
@@ -122,97 +155,147 @@ function ApprovalPanel({
         err
       );
 
+
       setError(
         err.message ||
         "Approval failed."
       );
 
     }
+
     finally {
 
-      setLoading(false);
+      setLoading(
+        false
+      );
 
     }
 
   }
 
 
+  // =====================================================
+  // Completed State
+  // =====================================================
+
   if (completed) {
+
+    const approved =
+      decisionMade === "approve";
+
 
     return (
 
       <section
         className="dashboard-section"
-        id="human-approval"
       >
 
         <div
+          className="table-panel"
           style={{
-            border:
-              "1px solid rgba(80, 200, 120, 0.45)",
-
-            borderRadius:
-              "14px",
-
-            padding:
-              "24px",
-
-            marginBottom:
-              "24px",
-
-            background:
-              "rgba(80, 200, 120, 0.06)"
+            padding: "24px",
+            marginBottom: "24px"
           }}
         >
 
-          <span
-            className="section-kicker"
-          >
-            HUMAN-IN-THE-LOOP
-          </span>
-
-
-          <h2>
-            {
-              decisionMade === "approve"
-                ? "Action Approved"
-                : "Action Rejected"
-            }
-          </h2>
-
-
-          <p
-            className="section-description"
-          >
-            {message}
-          </p>
-
-
-          <p
+          <div
             style={{
-              marginTop:
-                "12px"
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "space-between",
+              gap: "20px",
+              flexWrap: "wrap"
+            }}
+          >
+
+            <div>
+
+              <span
+                className="section-kicker"
+              >
+                HUMAN-IN-THE-LOOP
+              </span>
+
+
+              <h2
+                style={{
+                  marginBottom: "8px"
+                }}
+              >
+
+                {
+                  approved
+                    ? "Action Approved"
+                    : "Action Rejected"
+                }
+
+              </h2>
+
+
+              <p>
+
+                {
+                  message
+                }
+
+              </p>
+
+            </div>
+
+
+            <div
+              style={{
+                fontWeight: "600",
+                fontSize: "14px"
+              }}
+            >
+
+              Execution #
+
+              {
+                executionId
+              }
+
+            </div>
+
+          </div>
+
+
+          <div
+            style={{
+              marginTop: "20px",
+              padding: "16px",
+              borderRadius: "10px",
+              background: "rgba(255,255,255,0.04)"
             }}
           >
 
             <strong>
-              Ticket:
-            </strong>{" "}
-
-            {proposedAction.target}
-
-          </p>
+              Action
+            </strong>
 
 
-          <p>
+            <p
+              style={{
+                marginTop: "8px"
+              }}
+            >
 
-            <strong>
-              Decision:
-            </strong>{" "}
+              {
+                proposedAction.target
+              }
 
-            {decisionMade}
+              {" → "}
 
-          </p>
+              {
+                proposedAction.new_value ||
+                proposedAction.newValue ||
+                "N/A"
+              }
+
+            </p>
+
+          </div>
 
         </div>
 
@@ -223,239 +306,331 @@ function ApprovalPanel({
   }
 
 
+  // =====================================================
+  // Approval Required State
+  // =====================================================
+
   return (
 
     <section
       className="dashboard-section"
-      id="human-approval"
     >
 
       <div
+        className="table-panel"
         style={{
-          border:
-            "1px solid rgba(255, 180, 0, 0.45)",
-
-          borderRadius:
-            "14px",
-
-          padding:
-            "24px",
-
-          marginBottom:
-            "24px",
-
-          background:
-            "rgba(255, 180, 0, 0.06)"
+          padding: "24px",
+          marginBottom: "24px"
         }}
       >
 
-        <div>
+        {/* =========================================
+            HEADER
+        ========================================= */}
+
+        <div
+          className="section-label-row"
+        >
+
+          <div>
+
+            <span
+              className="section-kicker"
+            >
+              HUMAN-IN-THE-LOOP
+            </span>
+
+
+            <h2>
+              Approval Required
+            </h2>
+
+          </div>
+
 
           <span
-            className="section-kicker"
+            className="ai-generated"
           >
-            HUMAN-IN-THE-LOOP
+            Pending
           </span>
 
-
-          <h2>
-            Approval Required
-          </h2>
-
-
-          <p
-            className="section-description"
-          >
-            CognitiveOps detected a
-            high-impact operational action.
-            Human approval is required before
-            Jira is modified.
-          </p>
-
         </div>
 
 
+        {/* =========================================
+            EXECUTION INFORMATION
+        ========================================= */}
+
         <div
           style={{
-            marginTop:
-              "18px",
-
-            padding:
-              "18px",
-
-            borderRadius:
-              "10px",
-
-            background:
-              "rgba(0, 0, 0, 0.15)"
+            marginTop: "20px"
           }}
         >
 
           <p>
 
-            <strong>
-              Ticket:
-            </strong>{" "}
-
-            {proposedAction.target}
+            CognitiveOps has proposed an action
+            that requires human approval before
+            execution.
 
           </p>
 
 
-          <p>
-
-            <strong>
-              Action:
-            </strong>{" "}
-
-            {proposedAction.action_type}
-
-          </p>
-
-
-          <p>
-
-            <strong>
-              Field:
-            </strong>{" "}
-
-            {proposedAction.field}
-
-          </p>
-
-
-          <p>
-
-            <strong>
-              New Value:
-            </strong>{" "}
-
-            {proposedAction.new_value}
-
-          </p>
-
-
-          <p>
-
-            <strong>
-              Impact:
-            </strong>{" "}
-
-            {proposedAction.impact_level}
-
-          </p>
-
-
-          <p>
-
-            <strong>
-              Reason:
-            </strong>{" "}
-
-            {approvalReason ||
-              proposedAction.description}
-
-          </p>
-
-        </div>
-
-
-        <div
-          style={{
-            display:
-              "flex",
-
-            gap:
-              "12px",
-
-            marginTop:
-              "20px"
-          }}
-        >
-
-          <button
-            type="button"
-            disabled={loading}
-            onClick={() =>
-              handleDecision(
-                "approve"
-              )
-            }
+          <div
             style={{
-              padding:
-                "10px 20px",
-
-              borderRadius:
-                "8px",
-
-              border:
-                "none",
-
-              cursor:
-                loading
-                  ? "not-allowed"
-                  : "pointer",
-
-              fontWeight:
-                "600"
+              marginTop: "16px",
+              padding: "16px",
+              borderRadius: "10px",
+              background: "rgba(255,255,255,0.04)"
             }}
           >
 
+            <div
+              style={{
+                marginBottom: "10px"
+              }}
+            >
+
+              <strong>
+                Execution ID:
+              </strong>
+
+              {" "}
+
+              #
+              {
+                executionId
+              }
+
+            </div>
+
+
+            <div
+              style={{
+                marginBottom: "10px"
+              }}
+            >
+
+              <strong>
+                Proposed Action:
+              </strong>
+
+              {" "}
+
+              {
+                proposedAction.target
+              }
+
+              {" → "}
+
+              {
+                proposedAction.new_value ||
+                proposedAction.newValue ||
+                "N/A"
+              }
+
+            </div>
+
+
             {
-              loading
-                ? "Processing..."
-                : "Approve Action"
+              proposedAction.type && (
+
+                <div>
+
+                  <strong>
+                    Action Type:
+                  </strong>
+
+                  {" "}
+
+                  {
+                    proposedAction.type
+                  }
+
+                </div>
+
+              )
             }
 
-          </button>
+          </div>
 
+        </div>
+
+
+        {/* =========================================
+            APPROVAL REASON
+        ========================================= */}
+
+        {
+          approvalReason && (
+
+            <div
+              style={{
+                marginTop: "16px",
+                padding: "16px",
+                borderRadius: "10px",
+                background: "rgba(255,255,255,0.04)"
+              }}
+            >
+
+              <strong>
+                Approval Reason
+              </strong>
+
+
+              <p
+                style={{
+                  marginTop: "8px"
+                }}
+              >
+
+                {
+                  approvalReason
+                }
+
+              </p>
+
+            </div>
+
+          )
+        }
+
+
+        {/* =========================================
+            ERROR
+        ========================================= */}
+
+        {
+          error && (
+
+            <div
+              style={{
+                marginTop: "16px",
+                padding: "12px 16px",
+                borderRadius: "8px",
+                border: "1px solid rgba(255,80,80,0.4)",
+                background: "rgba(255,80,80,0.08)"
+              }}
+            >
+
+              <strong>
+                Approval Error
+              </strong>
+
+
+              <p
+                style={{
+                  marginTop: "6px"
+                }}
+              >
+
+                {
+                  error
+                }
+
+              </p>
+
+            </div>
+
+          )
+        }
+
+
+        {/* =========================================
+            ACTION BUTTONS
+        ========================================= */}
+
+        <div
+          style={{
+            display: "flex",
+            gap: "12px",
+            marginTop: "24px",
+            flexWrap: "wrap"
+          }}
+        >
+
+          {/* =====================================
+              REJECT
+          ===================================== */}
 
           <button
+
             type="button"
-            disabled={loading}
+
+            disabled={
+              loading
+            }
+
             onClick={() =>
               handleDecision(
                 "reject"
               )
             }
+
             style={{
-              padding:
-                "10px 20px",
-
-              borderRadius:
-                "8px",
-
-              cursor:
-                loading
-                  ? "not-allowed"
-                  : "pointer",
-
-              fontWeight:
-                "600"
+              padding: "12px 22px",
+              borderRadius: "8px",
+              border: "1px solid rgba(255,255,255,0.15)",
+              cursor: loading
+                ? "not-allowed"
+                : "pointer",
+              opacity: loading
+                ? 0.6
+                : 1
             }}
+
           >
 
-            Reject
+            {
+              loading
+                ? "Processing..."
+                : "Reject"
+            }
+
+          </button>
+
+
+          {/* =====================================
+              APPROVE
+          ===================================== */}
+
+          <button
+
+            type="button"
+
+            disabled={
+              loading
+            }
+
+            onClick={() =>
+              handleDecision(
+                "approve"
+              )
+            }
+
+            style={{
+              padding: "12px 22px",
+              borderRadius: "8px",
+              border: "none",
+              cursor: loading
+                ? "not-allowed"
+                : "pointer",
+              opacity: loading
+                ? 0.6
+                : 1
+            }}
+
+          >
+
+            {
+              loading
+                ? "Processing..."
+                : "Approve"
+            }
 
           </button>
 
         </div>
-
-
-        {error && (
-
-          <p
-            style={{
-              marginTop:
-                "16px"
-            }}
-          >
-
-            {error}
-
-          </p>
-
-        )}
 
       </div>
 

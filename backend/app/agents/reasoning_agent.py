@@ -11,13 +11,151 @@ from app.services.recommendation_service import (
     RecommendationService
 )
 
+from app.services.trace_service import (
+    set_agent_name,
+    trace_log
+)
+
 
 logger = logging.getLogger(__name__)
+
+
+# =========================================================
+# Evidence Evaluation Guardrail
+# =========================================================
+
+def _validate_evidence_evaluation(
+    evaluation: dict
+) -> tuple[bool, str]:
+
+    if not isinstance(
+        evaluation,
+        dict
+    ):
+
+        return (
+            False,
+            "Evidence evaluation is not a dictionary."
+        )
+
+    if not isinstance(
+        evaluation.get("sufficient"),
+        bool
+    ):
+
+        return (
+            False,
+            "Evidence sufficiency is invalid."
+        )
+
+    required_scores = (
+        "relevance",
+        "specificity",
+        "support",
+        "completeness"
+    )
+
+    for field in required_scores:
+
+        try:
+
+            score = float(
+                evaluation.get(field)
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+
+            return (
+                False,
+                f"Invalid evidence score: {field}"
+            )
+
+        if not 0.0 <= score <= 1.0:
+
+            return (
+                False,
+                f"Evidence score out of range: {field}"
+            )
+
+    if not isinstance(
+        evaluation.get("reason"),
+        str
+    ):
+
+        return (
+            False,
+            "Evidence evaluation reason is invalid."
+        )
+
+    if not evaluation.get(
+        "reason"
+    ).strip():
+
+        return (
+            False,
+            "Evidence evaluation reason is empty."
+        )
+
+    if not isinstance(
+        evaluation.get(
+            "missing_information"
+        ),
+        list
+    ):
+
+        return (
+            False,
+            "Missing information must be a list."
+        )
+
+    return (
+        True,
+        "Evidence evaluation is valid."
+    )
+
+
+def _copy_agent_outputs(
+    state: AgentState
+):
+
+    return dict(
+        state.get(
+            "agent_outputs",
+            {}
+        )
+    )
+
+
+def _copy_errors(
+    state: AgentState
+):
+
+    return list(
+        state.get(
+            "errors",
+            []
+        )
+    )
 
 
 def reasoning_agent(
     state: AgentState
 ):
+
+    # =========================================================
+    # TRACE CONTEXT
+    # =========================================================
+
+    set_agent_name(
+        "reasoning_agent"
+    )
+
+    trace_log(
+        "AGENT_START"
+    )
 
     logger.info(
         "AGENT START | reasoning_agent"
@@ -29,42 +167,12 @@ def reasoning_agent(
 
     gemini_used = False
 
-    # =========================================================
-    # 1. INITIALIZE SERVICES
-    # =========================================================
+    evidence_evaluations = []
 
-    try:
-
-        gemini_service = (
-            GeminiInsightService()
-        )
-
-    except Exception as e:
-
-        logger.exception(
-            "GEMINI SERVICE INIT FAILED | %s",
-            e
-        )
-
-        gemini_service = None
-
-    try:
-
-        recommendation_service = (
-            RecommendationService()
-        )
-
-    except Exception as e:
-
-        logger.exception(
-            "RECOMMENDATION SERVICE INIT FAILED | %s",
-            e
-        )
-
-        recommendation_service = None
+    evidence_safety_status = "not_evaluated"
 
     # =========================================================
-    # 2. READ EVIDENCE FROM STATE
+    # 1. READ EVIDENCE FROM STATE
     # =========================================================
 
     jira_evidence = state.get(
@@ -87,7 +195,6 @@ def reasoning_agent(
         []
     )
 
-    # Safety checks
     if not isinstance(
         jira_evidence,
         list
@@ -124,8 +231,17 @@ def reasoning_agent(
         len(existing_insights)
     )
 
+    trace_log(
+        "REASONING_INPUT",
+        (
+            f"jira={len(jira_evidence)} "
+            f"slack={len(slack_evidence)} "
+            f"insights={len(existing_insights)}"
+        )
+    )
+
     # =========================================================
-    # 3. BUILD RELIABLE COMBINED EVIDENCE
+    # 2. BUILD RELIABLE COMBINED EVIDENCE
     # =========================================================
 
     if not combined_evidence.get(
@@ -162,7 +278,7 @@ def reasoning_agent(
     )
 
     # =========================================================
-    # 4. LONG-TERM MEMORY
+    # 3. LONG-TERM MEMORY
     # =========================================================
 
     long_term_memory = state.get(
@@ -184,7 +300,7 @@ def reasoning_agent(
     )
 
     # =========================================================
-    # 5. START WITH EXISTING PATTERN INSIGHTS
+    # 4. START WITH EXISTING PATTERN INSIGHTS
     # =========================================================
 
     reasoning_inputs = list(
@@ -192,21 +308,8 @@ def reasoning_agent(
     )
 
     # =========================================================
-    # 6. FALLBACK:
+    # 5. FALLBACK:
     #    CREATE INSIGHTS FROM JIRA EVIDENCE
-    #
-    # Problem:
-    #
-    # PatternAgent can return:
-    #
-    #     insights = []
-    #
-    # even when Jira evidence exists.
-    #
-    # Previously reasoning_agent then had nothing to reason
-    # about.
-    #
-    # Now Jira evidence can become a valid WorkflowInsight.
     # =========================================================
 
     if not reasoning_inputs:
@@ -225,10 +328,6 @@ def reasoning_agent(
 
                 continue
 
-            # -------------------------------------------------
-            # Extract ticket identity
-            # -------------------------------------------------
-
             issue_key = (
                 item.get("key")
                 or item.get("issue_key")
@@ -243,10 +342,6 @@ def reasoning_agent(
                 )
 
                 continue
-
-            # -------------------------------------------------
-            # Extract ticket information
-            # -------------------------------------------------
 
             summary = (
                 item.get("summary")
@@ -272,17 +367,9 @@ def reasoning_agent(
                 "days_waiting"
             )
 
-            # -------------------------------------------------
-            # Normalize priority
-            # -------------------------------------------------
-
             priority_text = str(
                 priority
             ).strip().lower()
-
-            # -------------------------------------------------
-            # Determine severity
-            # -------------------------------------------------
 
             severity = "Low"
 
@@ -308,10 +395,6 @@ def reasoning_agent(
 
                 severity = "Medium"
 
-            # -------------------------------------------------
-            # Waiting-time based escalation
-            # -------------------------------------------------
-
             if isinstance(
                 days_waiting,
                 (int, float)
@@ -326,10 +409,6 @@ def reasoning_agent(
                     if severity == "Low":
 
                         severity = "Medium"
-
-            # -------------------------------------------------
-            # Build operational issue text
-            # -------------------------------------------------
 
             issue_text = (
                 f"{issue_key}: {summary}"
@@ -357,10 +436,6 @@ def reasoning_agent(
                 f"reassignment, or priority adjustment "
                 f"is required."
             )
-
-            # -------------------------------------------------
-            # Construct project's WorkflowInsight object
-            # -------------------------------------------------
 
             try:
 
@@ -411,7 +486,7 @@ def reasoning_agent(
         )
 
     # =========================================================
-    # 7. NOTHING TO REASON ABOUT
+    # 6. NOTHING TO REASON ABOUT
     # =========================================================
 
     if not reasoning_inputs:
@@ -421,16 +496,18 @@ def reasoning_agent(
             "no insights and no usable Jira evidence"
         )
 
+        trace_log(
+            "REASONING_STOPPED",
+            "reason=no_reasoning_inputs"
+        )
+
         execution_time = (
             time.perf_counter()
             - start_time
         )
 
-        agent_outputs = dict(
-            state.get(
-                "agent_outputs",
-                {}
-            )
+        agent_outputs = _copy_agent_outputs(
+            state
         )
 
         agent_outputs[
@@ -455,6 +532,14 @@ def reasoning_agent(
                     len(slack_evidence)
                 ),
 
+                "evidence_evaluations": (
+                    evidence_evaluations
+                ),
+
+                "evidence_safety_status": (
+                    evidence_safety_status
+                ),
+
                 "reason": (
                     "No usable insights or evidence "
                     "were available for reasoning."
@@ -473,6 +558,14 @@ def reasoning_agent(
             "no reasoning inputs"
         )
 
+        trace_log(
+            "AGENT_END",
+            (
+                f"execution_time={execution_time:.2f}s "
+                "status=no_reasoning_inputs"
+            )
+        )
+
         return {
 
             "insights": [],
@@ -485,6 +578,35 @@ def reasoning_agent(
                 agent_outputs
             )
         }
+
+    # =========================================================
+    # 7. INITIALIZE GEMINI ONLY WHEN REQUIRED
+    # =========================================================
+
+    try:
+
+        gemini_service = (
+            GeminiInsightService()
+        )
+
+        trace_log(
+            "GEMINI_SERVICE_READY"
+        )
+
+    except Exception as e:
+
+        logger.exception(
+            "GEMINI SERVICE INIT FAILED | %s",
+            e
+        )
+
+        trace_log(
+            "GEMINI_SERVICE_FAILED",
+            str(e),
+            logging.ERROR
+        )
+
+        gemini_service = None
 
     # =========================================================
     # 8. BUILD REASONING CONTEXT
@@ -523,7 +645,7 @@ def reasoning_agent(
     )
 
     # =========================================================
-    # 9. GEMINI REASONING
+    # 9. GEMINI REASONING + EVIDENCE SAFETY GATE
     # =========================================================
 
     try:
@@ -541,15 +663,206 @@ def reasoning_agent(
                         "is unavailable."
                     )
 
-                updated_insight = (
+                # =================================================
+                # 9A. EVIDENCE EVALUATION
+                # =================================================
+
+                trace_log(
+                    "EVIDENCE_EVALUATION_START"
+                )
+
+                evaluation = (
                     gemini_service
-                    .generate_insight_analysis(
+                    .evaluate_evidence(
                         insight,
                         analysis_context
                     )
                 )
 
+                if not isinstance(
+                    evaluation,
+                    dict
+                ):
+
+                    evaluation = {
+                        "sufficient": False,
+                        "relevance": 0.0,
+                        "specificity": 0.0,
+                        "support": 0.0,
+                        "completeness": 0.0,
+                        "reason": (
+                            "Invalid evidence "
+                            "evaluation returned."
+                        ),
+                        "missing_information": []
+                    }
+
+                evaluation_valid, validation_reason = (
+                    _validate_evidence_evaluation(
+                        evaluation
+                    )
+                )
+
+                if not evaluation_valid:
+
+                    evidence_safety_status = (
+                        "blocked_invalid_evaluation"
+                    )
+
+                    logger.warning(
+                        "EVIDENCE GUARDRAIL BLOCKED | "
+                        "reason=%s",
+                        validation_reason
+                    )
+
+                    trace_log(
+                        "EVIDENCE_GUARDRAIL_BLOCKED",
+                        (
+                            f"reason={validation_reason}"
+                        ),
+                        logging.WARNING
+                    )
+
+                    evaluation = {
+                        **evaluation,
+                        "sufficient": False,
+                        "guardrail_status": "blocked",
+                        "guardrail_reason": (
+                            validation_reason
+                        )
+                    }
+
+                else:
+
+                    evidence_safety_status = (
+                        "evaluation_valid"
+                    )
+
+                evidence_evaluations.append(
+                    evaluation
+                )
+
+                logger.info(
+                    "EVIDENCE EVALUATION | "
+                    "sufficient=%s | "
+                    "relevance=%.2f | "
+                    "specificity=%.2f | "
+                    "support=%.2f | "
+                    "completeness=%.2f",
+                    evaluation.get(
+                        "sufficient",
+                        False
+                    ),
+                    float(
+                        evaluation.get(
+                            "relevance",
+                            0.0
+                        )
+                    ),
+                    float(
+                        evaluation.get(
+                            "specificity",
+                            0.0
+                        )
+                    ),
+                    float(
+                        evaluation.get(
+                            "support",
+                            0.0
+                        )
+                    ),
+                    float(
+                        evaluation.get(
+                            "completeness",
+                            0.0
+                        )
+                    )
+                )
+
+                # =================================================
+                # 9B. HARD EVIDENCE SAFETY GATE
+                # =================================================
+
+                if not evaluation.get(
+                    "sufficient",
+                    False
+                ):
+
+                    evidence_safety_status = (
+                        "blocked_insufficient_evidence"
+                    )
+
+                    logger.warning(
+                        "EVIDENCE INSUFFICIENT | "
+                        "Gemini insight generation skipped | "
+                        "fallback recommendation blocked"
+                    )
+
+                    trace_log(
+                        "EVIDENCE_REASONING_BLOCKED",
+                        (
+                            "reason=insufficient_evidence"
+                        ),
+                        logging.WARNING
+                    )
+
+                    if hasattr(
+                        insight,
+                        "impact"
+                    ):
+
+                        insight.impact = (
+                            "Impact cannot be reliably "
+                            "determined from the available evidence."
+                        )
+
+                    if hasattr(
+                        insight,
+                        "recommendation"
+                    ):
+
+                        insight.recommendation = (
+                            "Additional evidence is required "
+                            "before generating a reliable recommendation."
+                        )
+
+                    updated_insight = (
+                        insight
+                    )
+
+                    updated_insights.append(
+                        updated_insight
+                    )
+
+                    continue
+
+                # =================================================
+                # 9C. SUFFICIENT EVIDENCE
+                #     → ALLOW GEMINI REASONING
+                # =================================================
+
+                evidence_safety_status = (
+                    "approved_for_reasoning"
+                )
+
+                trace_log(
+                    "INSIGHT_GENERATION_START"
+                )
+
+                updated_insight = (
+                    gemini_service
+                    .generate_insight_analysis(
+                        insight,
+                        analysis_context,
+                        long_term_memory
+                    )
+                )
+
                 gemini_used = True
+
+                trace_log(
+                    "INSIGHT_GENERATION_SUCCESS"
+                )
 
                 logger.info(
                     "GEMINI REASONING SUCCESS"
@@ -563,81 +876,55 @@ def reasoning_agent(
                     e
                 )
 
-                # =================================================
-                # 10. RULE-BASED FALLBACK
-                # =================================================
+                trace_log(
+                    "REASONING_OPERATION_FAILED",
+                    str(e),
+                    logging.ERROR
+                )
 
-                if recommendation_service is not None:
+                evidence_safety_status = (
+                    "blocked_reasoning_error"
+                )
 
-                    try:
+                logger.warning(
+                    "REASONING GUARDRAIL | "
+                    "fallback recommendation blocked | "
+                    "reason=%s",
+                    e
+                )
 
-                        recommendation = (
-                            recommendation_service
-                            .generate_recommendation(
-                                insight
-                            )
-                        )
+                if hasattr(
+                    insight,
+                    "impact"
+                ):
 
-                        if isinstance(
-                            recommendation,
-                            dict
-                        ):
+                    insight.impact = (
+                        "Impact cannot be reliably "
+                        "determined because reasoning "
+                        "validation failed."
+                    )
 
-                            if hasattr(
-                                insight,
-                                "impact"
-                            ):
+                if hasattr(
+                    insight,
+                    "recommendation"
+                ):
 
-                                insight.impact = (
-                                    recommendation.get(
-                                        "impact",
-                                        getattr(
-                                            insight,
-                                            "impact",
-                                            ""
-                                        )
-                                    )
-                                )
+                    insight.recommendation = (
+                        "Additional validation is required "
+                        "before generating a recommendation."
+                    )
 
-                            if hasattr(
-                                insight,
-                                "recommendation"
-                            ):
-
-                                insight.recommendation = (
-                                    recommendation.get(
-                                        "recommendation",
-                                        getattr(
-                                            insight,
-                                            "recommendation",
-                                            ""
-                                        )
-                                    )
-                                )
-
-                        updated_insight = (
-                            insight
-                        )
-
-                    except Exception as fallback_error:
-
-                        logger.error(
-                            "RECOMMENDATION FALLBACK ERROR | "
-                            "%s",
-                            fallback_error
-                        )
-
-                        updated_insight = (
-                            insight
-                        )
+                updated_insight = (
+                    insight
+                )
 
             updated_insights.append(
                 updated_insight
             )
 
-    # =========================================================
-    # 11. FINAL EXECUTION METRICS
-    # =========================================================
+        # =========================================================
+        # 10. FINAL EXECUTION METRICS
+        # =========================================================
 
         execution_time = (
             time.perf_counter()
@@ -648,21 +935,30 @@ def reasoning_agent(
             "AGENT END | reasoning_agent | "
             "execution_time=%.2fs | "
             "insights=%s | "
-            "gemini_used=%s",
+            "gemini_used=%s | "
+            "evidence_safety=%s",
             execution_time,
             len(updated_insights),
-            gemini_used
+            gemini_used,
+            evidence_safety_status
+        )
+
+        trace_log(
+            "AGENT_END",
+            (
+                f"execution_time={execution_time:.2f}s "
+                f"insights={len(updated_insights)} "
+                f"gemini_used={gemini_used} "
+                f"evidence_safety={evidence_safety_status}"
+            )
         )
 
         # =========================================================
-        # 12. STRUCTURED AGENT OUTPUT
+        # 11. STRUCTURED AGENT OUTPUT
         # =========================================================
 
-        agent_outputs = dict(
-            state.get(
-                "agent_outputs",
-                {}
-            )
+        agent_outputs = _copy_agent_outputs(
+            state
         )
 
         agent_outputs[
@@ -698,8 +994,15 @@ def reasoning_agent(
                             "slack",
                             []
                         )
-                    ),
+                    )
+                ),
 
+                "evidence_evaluations": (
+                    evidence_evaluations
+                ),
+
+                "evidence_safety_status": (
+                    evidence_safety_status
                 )
             },
 
@@ -715,14 +1018,6 @@ def reasoning_agent(
             "agent=reasoning_agent | "
             "status=success"
         )
-
-        logger.info(
-            "AGENT END | reasoning_agent"
-        )
-
-        # =========================================================
-        # 13. RETURN UPDATED STATE
-        # =========================================================
 
         return {
 
@@ -740,7 +1035,7 @@ def reasoning_agent(
         }
 
     # =========================================================
-    # 14. COMPLETE AGENT FAILURE
+    # 12. COMPLETE AGENT FAILURE
     # =========================================================
 
     except Exception as e:
@@ -756,11 +1051,17 @@ def reasoning_agent(
             execution_time
         )
 
-        agent_outputs = dict(
-            state.get(
-                "agent_outputs",
-                {}
-            )
+        trace_log(
+            "AGENT_FAILED",
+            (
+                f"execution_time={execution_time:.2f}s "
+                f"error={e}"
+            ),
+            logging.ERROR
+        )
+
+        agent_outputs = _copy_agent_outputs(
+            state
         )
 
         agent_outputs[
@@ -771,7 +1072,16 @@ def reasoning_agent(
 
             "status": "failed",
 
-            "output": None,
+            "output": {
+
+                "evidence_evaluations": (
+                    evidence_evaluations
+                ),
+
+                "evidence_safety_status": (
+                    evidence_safety_status
+                )
+            },
 
             "execution_time": (
                 execution_time

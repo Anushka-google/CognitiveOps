@@ -23,8 +23,8 @@ from app.models.execution import (
     WorkflowExecution
 )
 
-from app.services.jira_service import (
-    JiraService
+from app.tools.jira_tools import (
+    update_jira_priority
 )
 
 
@@ -462,8 +462,14 @@ def approve_execution(
             )
         )
 
-    action_type = proposed_action.get(
-        "action_type"
+    action_type = (
+        proposed_action.get(
+            "action_type"
+        )
+        or
+        proposed_action.get(
+            "type"
+        )
     )
 
     if action_type != (
@@ -519,22 +525,32 @@ def approve_execution(
 
     try:
 
-        jira_service = JiraService()
+        # =================================================
+        # TOOL CALL
+        # =================================================
+        #
+        # The human has already approved the action.
+        #
+        # execution.py
+        #       ↓
+        # Jira Tool
+        #       ↓
+        # JiraService
+        #       ↓
+        # Jira API
+        #
+        # =================================================
 
-        result = (
-
-            jira_service
-            .update_issue_priority(
-                issue_key,
-                priority_name
-            )
+        result = update_jira_priority(
+            issue_key=issue_key,
+            priority_name=priority_name
         )
 
     except Exception as e:
 
         logger.exception(
 
-            "APPROVED JIRA ACTION FAILED | "
+            "APPROVED JIRA TOOL CALL FAILED | "
             "execution_id=%s",
 
             execution_id
@@ -552,7 +568,15 @@ def approve_execution(
             "execution_error"
         ] = str(e)
 
-        execution.memory = memory
+        # IMPORTANT:
+        # WorkflowExecution.memory is a
+        # String column, therefore the
+        # dictionary must be serialized.
+
+        execution.memory = json.dumps(
+            memory,
+            default=str
+        )
 
         db.commit()
 
@@ -595,7 +619,18 @@ def approve_execution(
         "approved_at"
     ] = datetime.utcnow().isoformat()
 
-    execution.memory = memory
+    memory[
+        "rejected_at"
+    ] = None
+
+    # IMPORTANT:
+    # memory column is String in the
+    # WorkflowExecution model.
+
+    execution.memory = json.dumps(
+        memory,
+        default=str
+    )
 
     execution.completed_at = (
         datetime.utcnow()
@@ -629,6 +664,12 @@ def approve_execution(
 
         "execution_id":
             execution_id,
+
+        "decision":
+            "approved",
+
+        "execution_status":
+            "completed",
 
         "action":
             result
@@ -693,6 +734,10 @@ def reject_execution(
             )
         )
 
+    # ==========================================
+    # HUMAN REJECTED
+    # ==========================================
+
     memory[
         "approval_status"
     ] = "rejected"
@@ -703,7 +748,7 @@ def reject_execution(
 
     memory[
         "execution_status"
-    ] = "terminated"
+    ] = "rejected"
 
     memory[
         "goal_completed"
@@ -724,13 +769,36 @@ def reject_execution(
         "rejected_at"
     ] = datetime.utcnow().isoformat()
 
-    execution.memory = memory
+    memory[
+        "approved_at"
+    ] = None
+
+    memory[
+        "approved_action_result"
+    ] = None
+
+    memory[
+        "execution_error"
+    ] = None
+
+    # IMPORTANT:
+    # WorkflowExecution.memory is a
+    # String column, so serialize dict.
+
+    execution.memory = json.dumps(
+        memory,
+        default=str
+    )
 
     execution.completed_at = (
         datetime.utcnow()
     )
 
     db.commit()
+
+    db.refresh(
+        execution
+    )
 
     logger.warning(
 
@@ -749,7 +817,13 @@ def reject_execution(
             "Human rejected the proposed action.",
 
         "execution_id":
-            execution_id
+            execution_id,
+
+        "decision":
+            "rejected",
+
+        "execution_status":
+            "rejected"
     }
 
 
@@ -866,6 +940,41 @@ def get_execution_stats(
         for execution in executions
     )
 
+    rejected_executions = 0
+
+    pending_approvals = 0
+
+    for execution in executions:
+
+        memory = _extract_memory(
+            execution
+        )
+
+        if memory.get(
+            "approval_status"
+        ) == "rejected":
+
+            rejected_executions += 1
+
+        if (
+
+            memory.get(
+                "approval_status"
+            )
+            ==
+            "pending"
+
+            and
+
+            memory.get(
+                "approval_required",
+                False
+            )
+
+        ):
+
+            pending_approvals += 1
+
     return {
 
         "total_executions":
@@ -881,5 +990,11 @@ def get_execution_stats(
             poor_executions,
 
         "total_high_severity_issues":
-            total_high_severity_issues
+            total_high_severity_issues,
+
+        "rejected_executions":
+            rejected_executions,
+
+        "pending_approvals":
+            pending_approvals
     }

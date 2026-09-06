@@ -2,9 +2,199 @@ import logging
 import time
 
 from app.agents.state import AgentState
+from app.services.trace_service import (
+    set_agent_name,
+    trace_log
+)
 
 
 logger = logging.getLogger(__name__)
+
+
+# =========================================================
+# ACTION GUARDRAIL POLICY
+# =========================================================
+#
+# Only actions explicitly registered here are allowed
+# to reach the HITL approval stage.
+#
+# IMPORTANT:
+# This policy does NOT execute Jira actions.
+# It only validates whether a proposed action is allowed.
+# =========================================================
+
+ALLOWED_ACTIONS = {
+
+    "jira_update_priority": {
+
+        "field":
+            "priority",
+
+        "allowed_values": {
+            "Highest"
+        },
+
+        "requires_human_approval":
+            True
+    }
+}
+
+
+def _validate_proposed_action(
+    action: dict
+) -> tuple[bool, str]:
+    """
+    Validate a proposed action against the
+    system-controlled action allowlist.
+
+    Returns:
+        (True, reason)  -> action allowed
+        (False, reason) -> action blocked
+    """
+
+    if not isinstance(
+        action,
+        dict
+    ):
+
+        return (
+            False,
+            "Proposed action must be a dictionary."
+        )
+
+    # -----------------------------------------------------
+    # Required fields
+    # -----------------------------------------------------
+
+    action_type = action.get(
+        "action_type"
+    )
+
+    target = action.get(
+        "target"
+    )
+
+    field = action.get(
+        "field"
+    )
+
+    new_value = action.get(
+        "new_value"
+    )
+
+    if not action_type:
+
+        return (
+            False,
+            "Action type is missing."
+        )
+
+    if not target:
+
+        return (
+            False,
+            "Action target is missing."
+        )
+
+    if not field:
+
+        return (
+            False,
+            "Action field is missing."
+        )
+
+    if new_value is None:
+
+        return (
+            False,
+            "Action value is missing."
+        )
+
+    # -----------------------------------------------------
+    # Action allowlist
+    # -----------------------------------------------------
+
+    policy = ALLOWED_ACTIONS.get(
+        action_type
+    )
+
+    if policy is None:
+
+        return (
+            False,
+            f"Action type is not allowed: {action_type}"
+        )
+
+    # -----------------------------------------------------
+    # Field validation
+    # -----------------------------------------------------
+
+    if field != policy.get(
+        "field"
+    ):
+
+        return (
+            False,
+            f"Field is not allowed for action: {field}"
+        )
+
+    # -----------------------------------------------------
+    # Value validation
+    # -----------------------------------------------------
+
+    allowed_values = policy.get(
+        "allowed_values",
+        set()
+    )
+
+    if new_value not in allowed_values:
+
+        return (
+            False,
+            f"Value is not allowed: {new_value}"
+        )
+
+    # -----------------------------------------------------
+    # HITL validation
+    # -----------------------------------------------------
+
+    if not policy.get(
+        "requires_human_approval",
+        False
+    ):
+
+        return (
+            False,
+            "Mutation action must require human approval."
+        )
+
+    # -----------------------------------------------------
+    # Target validation
+    # -----------------------------------------------------
+
+    if not isinstance(
+        target,
+        str
+    ):
+
+        return (
+            False,
+            "Action target must be a string."
+        )
+
+    target = target.strip()
+
+    if not target:
+
+        return (
+            False,
+            "Action target cannot be empty."
+        )
+
+    return (
+        True,
+        "Action passed guardrails."
+    )
 
 
 def _copy_agent_outputs(state: AgentState):
@@ -33,10 +223,16 @@ def _result_count(result):
     if result is None:
         return 0
 
-    if isinstance(result, (list, tuple, set)):
+    if isinstance(
+        result,
+        (list, tuple, set)
+    ):
         return len(result)
 
-    if isinstance(result, dict):
+    if isinstance(
+        result,
+        dict
+    ):
 
         # A Jira issue is a dict but represents one result.
         return 1
@@ -54,6 +250,8 @@ def plan_executor(state: AgentState):
 
         Agent proposes action
               ↓
+        Guardrail validation
+              ↓
         Human approval required
               ↓
         Executor STOPS
@@ -62,6 +260,15 @@ def plan_executor(state: AgentState):
 
     This executor NEVER directly mutates Jira.
     """
+
+    set_agent_name(
+        "plan_executor"
+    )
+
+    trace_log(
+        "AGENT_START",
+        f"step={state.get('current_step', 0)}"
+    )
 
     logger.info(
         "AGENT START | plan_executor"
@@ -222,10 +429,12 @@ def plan_executor(state: AgentState):
                     days_waiting = float(
                         days_waiting or 0
                     )
+
                 except (
                     TypeError,
                     ValueError
                 ):
+
                     days_waiting = 0
 
                 if days_waiting > 3:
@@ -256,10 +465,6 @@ def plan_executor(state: AgentState):
 
             try:
 
-                # -------------------------------------------------
-                # First use existing evidence if available.
-                # -------------------------------------------------
-
                 existing_jira = state.get(
                     "jira_evidence"
                 )
@@ -267,10 +472,6 @@ def plan_executor(state: AgentState):
                 if existing_jira:
 
                     jira_evidence = existing_jira
-
-                # -------------------------------------------------
-                # Otherwise retrieve from Jira.
-                # -------------------------------------------------
 
                 if not jira_evidence:
 
@@ -308,10 +509,6 @@ def plan_executor(state: AgentState):
                                     issue_key
                                 )
                             )
-
-                    # -------------------------------------------------
-                    # Fallback to all workflow records.
-                    # -------------------------------------------------
 
                     if not jira_evidence:
 
@@ -356,10 +553,6 @@ def plan_executor(state: AgentState):
 
             result = jira_evidence
 
-            # Jira may return either:
-            #   list
-            # or
-            #   single dict.
             sufficient = bool(
                 jira_evidence
             )
@@ -691,7 +884,7 @@ def plan_executor(state: AgentState):
                             break
 
             # -------------------------------------------------
-            # Cannot safely propose an action without target.
+            # Cannot safely propose action without target.
             # -------------------------------------------------
 
             if not issue_key:
@@ -763,6 +956,139 @@ def plan_executor(state: AgentState):
                     True
             }
 
+            # =================================================
+            # ACTION GUARDRAIL
+            # =================================================
+
+            action_valid, guardrail_reason = (
+                _validate_proposed_action(
+                    proposed_action
+                )
+            )
+
+            if not action_valid:
+
+                logger.error(
+                    "ACTION GUARDRAIL BLOCKED | "
+                    "issue=%s | reason=%s",
+                    issue_key,
+                    guardrail_reason
+                )
+
+                errors = _copy_errors(
+                    state
+                )
+
+                errors.append({
+
+                    "agent":
+                        "plan_executor",
+
+                    "step":
+                        "propose_jira_change",
+
+                    "error":
+                        (
+                            "Action guardrail blocked: "
+                            f"{guardrail_reason}"
+                        )
+                })
+
+                agent_outputs = (
+                    _copy_agent_outputs(
+                        state
+                    )
+                )
+
+                agent_outputs[
+                    "plan_executor"
+                ] = {
+
+                    "agent":
+                        "plan_executor",
+
+                    "status":
+                        "blocked",
+
+                    "output": {
+
+                        "step":
+                            step,
+
+                        "issue_key":
+                            issue_key,
+
+                        "proposed_action":
+                            proposed_action,
+
+                        "guardrail_status":
+                            "blocked",
+
+                        "guardrail_reason":
+                            guardrail_reason,
+
+                        "approval_required":
+                            False
+                    },
+
+                    "execution_time":
+                        (
+                            time.perf_counter()
+                            - start_time
+                        ),
+
+                    "error":
+                        guardrail_reason
+                }
+
+                return {
+
+                    "errors":
+                        errors,
+
+                    "agent_outputs":
+                        agent_outputs,
+
+                    "execution_status":
+                        "failed",
+
+                    "execution_error":
+                        (
+                            "Action guardrail blocked: "
+                            f"{guardrail_reason}"
+                        ),
+
+                    "approval_required":
+                        False,
+
+                    "approval_status":
+                        None,
+
+                    "proposed_action":
+                        {},
+
+                    "goal_completed":
+                        False,
+
+                    "termination_reason":
+                        "action_guardrail_blocked"
+                }
+
+            logger.info(
+                "ACTION GUARDRAIL PASSED | "
+                "action=%s | issue=%s | field=%s | value=%s",
+                proposed_action.get(
+                    "action_type"
+                ),
+                issue_key,
+                proposed_action.get(
+                    "field"
+                ),
+                proposed_action.get(
+                    "new_value"
+                )
+            )
+
             result = proposed_action
 
             sufficient = True
@@ -821,6 +1147,12 @@ def plan_executor(state: AgentState):
 
                     "proposed_action":
                         proposed_action,
+
+                    "guardrail_status":
+                        "passed",
+
+                    "guardrail_reason":
+                        guardrail_reason,
 
                     "approval_required":
                         True,

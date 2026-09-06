@@ -1,10 +1,16 @@
+import logging
 import os
 import time
-import logging
+import re
 
 from dotenv import load_dotenv
+
 from google import genai
 from google.genai import types
+
+from app.services.trace_service import (
+    trace_log
+)
 
 
 # ==========================================
@@ -51,6 +57,20 @@ LLM_INITIAL_BACKOFF = float(
     )
 )
 
+LLM_INPUT_COST_PER_1M = float(
+    os.getenv(
+        "LLM_INPUT_COST_PER_1M",
+        "0.30"
+    )
+)
+
+LLM_OUTPUT_COST_PER_1M = float(
+    os.getenv(
+        "LLM_OUTPUT_COST_PER_1M",
+        "2.50"
+    )
+)
+
 
 # ==========================================
 # Logging
@@ -60,393 +80,794 @@ logger = logging.getLogger(__name__)
 
 
 # ==========================================
-# Gemini Client
+# Central LLM Service
 # ==========================================
 
-client = genai.Client(
-    api_key=GEMINI_API_KEY
-)
+class LLMService:
+    """
+    Central abstraction for LLM operations.
 
+    Currently uses Gemini.
 
-# ==========================================
-# Helper: Log Token Usage
-# ==========================================
+    Responsibilities:
+    - Gemini client management
+    - Model configuration
+    - Text generation
+    - Structured JSON output
+    - Context-based answers
+    - Retry handling
+    - Quota handling
+    - Temporary failure handling
+    - Latency tracking
+    - Token usage tracking
+    - Cost estimation
+    - Trace correlation
+    - Operation-level observability
+    """
 
-def _log_token_usage(response):
+    def __init__(
+        self,
+        api_key: str | None = None,
+        model: str | None = None
+    ):
 
-    usage = getattr(
-        response,
-        "usage_metadata",
-        None
-    )
+        self.api_key = (
+            api_key
+            or GEMINI_API_KEY
+        )
 
-    if usage:
+        self.model = (
+            model
+            or GEMINI_MODEL
+        )
+
+        self.temperature = (
+            LLM_TEMPERATURE
+        )
+
+        self.max_tokens = (
+            LLM_MAX_TOKENS
+        )
+
+        self.max_retries = (
+            LLM_MAX_RETRIES
+        )
+
+        self.initial_backoff = (
+            LLM_INITIAL_BACKOFF
+        )
+
+        # Cost configuration
+        self.input_cost_per_1m = (
+            LLM_INPUT_COST_PER_1M
+        )
+
+        self.output_cost_per_1m = (
+            LLM_OUTPUT_COST_PER_1M
+        )
+
+        if not self.api_key:
+
+            raise ValueError(
+                "GEMINI_API_KEY is not configured."
+            )
+
+        self.client = genai.Client(
+            api_key=self.api_key
+        )
 
         logger.info(
-            "LLM USAGE | input_tokens=%s "
-            "output_tokens=%s "
-            "total_tokens=%s",
-            getattr(
+            "LLM SERVICE INITIALIZED | "
+            "provider=gemini | model=%s",
+            self.model
+        )
+
+        trace_log(
+            "LLM_SERVICE_INITIALIZED",
+            (
+                f"provider=gemini "
+                f"model={self.model}"
+            )
+        )
+
+    # ==========================================
+    # Token Usage + Cost Estimation
+    # ==========================================
+
+    def _log_token_usage(
+        self,
+        response
+    ):
+
+        usage = getattr(
+            response,
+            "usage_metadata",
+            None
+        )
+
+        if usage:
+
+            input_tokens = getattr(
                 usage,
                 "prompt_token_count",
                 None
-            ),
-            getattr(
+            )
+
+            output_tokens = getattr(
                 usage,
                 "candidates_token_count",
                 None
-            ),
-            getattr(
+            )
+
+            thinking_tokens = getattr(
+                usage,
+                "thoughts_token_count",
+                0
+            ) or 0
+
+            total_tokens = getattr(
                 usage,
                 "total_token_count",
                 None
             )
-        )
 
-    else:
+            input_cost = 0.0
+            output_cost = 0.0
 
-        logger.info(
-            "LLM USAGE | token metadata unavailable"
-        )
+            # Input token cost
+            if input_tokens is not None:
 
+                input_cost = (
+                    input_tokens
+                    * self.input_cost_per_1m
+                    / 1_000_000
+                )
 
-# ==========================================
-# Helper: Detect Permanent Errors
-# ==========================================
+            # Output + thinking token cost
+            if output_tokens is not None:
 
-def _is_permanent_error(
-    error_text: str
-) -> bool:
-    """
-    Detect errors that will not be fixed
-    by retrying the same request.
-    """
+                billable_output_tokens = (
+                    output_tokens
+                    + thinking_tokens
+                )
 
-    return (
-        "api key" in error_text
-        or "authentication" in error_text
-        or "permission" in error_text
-        or "invalid argument" in error_text
-        or "invalid api key" in error_text
-        or "not found" in error_text
-    )
+                output_cost = (
+                    billable_output_tokens
+                    * self.output_cost_per_1m
+                    / 1_000_000
+                )
 
-
-# ==========================================
-# Helper: Detect Daily / Project Quota
-# ==========================================
-
-def _is_quota_exhausted(
-    error_text: str
-) -> bool:
-    """
-    Detect hard quota exhaustion.
-
-    Example:
-
-    GenerateRequestsPerDayPerProjectPerModel-FreeTier
-
-    This should NOT be retried because waiting
-    a few seconds will not restore a daily quota.
-    """
-
-    return (
-        "generate_requests_per_day" in error_text
-        or "perdayperproject" in error_text
-        or "daily quota" in error_text
-        or "quota exceeded for metric" in error_text
-        or "free_tier_requests" in error_text
-    )
-
-
-# ==========================================
-# Helper: Detect Temporary Rate Limit
-# ==========================================
-
-def _is_rate_limit_error(
-    error_text: str
-) -> bool:
-    """
-    Detect temporary rate-limit conditions.
-
-    These may succeed after waiting.
-    """
-
-    return (
-        "429" in error_text
-        or "too many requests" in error_text
-        or "rate limit" in error_text
-        or "ratelimit" in error_text
-    )
-
-
-# ==========================================
-# Helper: Detect Retryable Errors
-# ==========================================
-
-def _is_retryable_error(
-    error_text: str
-) -> bool:
-    """
-    Detect temporary infrastructure/network
-    failures that can reasonably be retried.
-    """
-
-    return (
-        "timeout" in error_text
-        or "timed out" in error_text
-        or "connection reset" in error_text
-        or "connection refused" in error_text
-        or "temporary failure" in error_text
-        or "temporarily unavailable" in error_text
-        or "internal server error" in error_text
-        or "service unavailable" in error_text
-        or "bad gateway" in error_text
-        or "gateway timeout" in error_text
-        or "503" in error_text
-        or "502" in error_text
-        or "500" in error_text
-    )
-
-
-# ==========================================
-# Helper: Gemini Request With Retry
-# ==========================================
-
-def _generate_with_retry(
-    contents: str,
-    system_instruction: str
-):
-
-    for attempt in range(
-        LLM_MAX_RETRIES + 1
-    ):
-
-        start_time = time.perf_counter()
-
-        try:
-
-            logger.info(
-                "LLM ATTEMPT | "
-                "attempt=%s/%s | model=%s",
-                attempt + 1,
-                LLM_MAX_RETRIES + 1,
-                GEMINI_MODEL
+            estimated_cost = (
+                input_cost
+                + output_cost
             )
 
-            response = (
-                client.models.generate_content(
-                    model=GEMINI_MODEL,
-                    contents=contents,
-                    config=types.GenerateContentConfig(
-                        system_instruction=(
-                            system_instruction
-                        ),
-                        temperature=(
-                            LLM_TEMPERATURE
-                        ),
-                        max_output_tokens=(
-                            LLM_MAX_TOKENS
+            logger.info(
+                "LLM USAGE | "
+                "input_tokens=%s "
+                "output_tokens=%s "
+                "thinking_tokens=%s "
+                "total_tokens=%s "
+                "estimated_cost_usd=%.8f",
+
+                input_tokens,
+
+                output_tokens,
+
+                thinking_tokens,
+
+                total_tokens,
+
+                estimated_cost
+            )
+
+            trace_log(
+                "LLM_USAGE",
+                (
+                    f"input_tokens={input_tokens} "
+                    f"output_tokens={output_tokens} "
+                    f"thinking_tokens={thinking_tokens} "
+                    f"total_tokens={total_tokens} "
+                    f"estimated_cost_usd="
+                    f"{estimated_cost:.8f}"
+                )
+            )
+
+        else:
+
+            logger.info(
+                "LLM USAGE | "
+                "token metadata unavailable"
+            )
+
+            trace_log(
+                "LLM_USAGE",
+                "token_metadata=unavailable"
+            )
+
+    # ==========================================
+    # Permanent Error Detection
+    # ==========================================
+
+    def _is_permanent_error(
+        self,
+        error_text: str
+    ) -> bool:
+
+        return (
+
+            "api key" in error_text
+
+            or
+            "authentication" in error_text
+
+            or
+            "permission" in error_text
+
+            or
+            "invalid argument" in error_text
+
+            or
+            "invalid api key" in error_text
+
+            or
+            "not found" in error_text
+        )
+
+    # ==========================================
+    # Daily / Project Quota Detection
+    # ==========================================
+
+    def _is_quota_exhausted(
+        self,
+        error_text: str
+    ) -> bool:
+
+        return (
+
+            "generate_requests_per_day"
+            in error_text
+
+            or
+            "perdayperproject"
+            in error_text
+
+            or
+            "daily quota"
+            in error_text
+
+            or
+            "quota exceeded for metric"
+            in error_text
+
+            or
+            "free_tier_requests"
+            in error_text
+        )
+
+    # ==========================================
+    # Rate Limit Detection
+    # ==========================================
+
+    def _is_rate_limit_error(
+        self,
+        error_text: str
+    ) -> bool:
+
+        return (
+
+            "429" in error_text
+
+            or
+            "too many requests"
+            in error_text
+
+            or
+            "rate limit"
+            in error_text
+
+            or
+            "ratelimit"
+            in error_text
+        )
+
+    # ==========================================
+    # Retryable Error Detection
+    # ==========================================
+
+    def _is_retryable_error(
+        self,
+        error_text: str
+    ) -> bool:
+
+        return (
+
+            "timeout" in error_text
+
+            or
+            "timed out" in error_text
+
+            or
+            "connection reset"
+            in error_text
+
+            or
+            "connection refused"
+            in error_text
+
+            or
+            "temporary failure"
+            in error_text
+
+            or
+            "temporarily unavailable"
+            in error_text
+
+            or
+            "internal server error"
+            in error_text
+
+            or
+            "service unavailable"
+            in error_text
+
+            or
+            "bad gateway"
+            in error_text
+
+            or
+            "gateway timeout"
+            in error_text
+
+            or
+            "503" in error_text
+
+            or
+            "502" in error_text
+
+            or
+            "500" in error_text
+        )
+
+    # ==========================================
+    # Server Retry Delay
+    # ==========================================
+
+    def _get_retry_delay(
+        self,
+        error_text: str,
+        attempt: int
+    ) -> float:
+
+        match = re.search(
+            r"retryDelay['\"]?\s*[:=]\s*['\"]?(\d+)s",
+            error_text,
+            re.IGNORECASE
+        )
+
+        if match:
+
+            return float(
+                match.group(1)
+            )
+
+        match = re.search(
+            r"retry in\s+(\d+(?:\.\d+)?)s",
+            error_text,
+            re.IGNORECASE
+        )
+
+        if match:
+
+            return float(
+                match.group(1)
+            )
+
+        return (
+            self.initial_backoff
+            *
+            (
+                2 ** attempt
+            )
+        )
+
+    # ==========================================
+    # Gemini Request With Retry
+    # ==========================================
+
+    def _generate_with_retry(
+        self,
+        contents: str,
+        system_instruction: str,
+        response_schema=None,
+        operation_name: str = "unknown"
+    ):
+
+        total_attempts = (
+            self.max_retries + 1
+        )
+
+        for attempt in range(
+            total_attempts
+        ):
+
+            start_time = (
+                time.perf_counter()
+            )
+
+            try:
+
+                logger.info(
+                    "LLM ATTEMPT | "
+                    "provider=gemini | "
+                    "operation=%s | "
+                    "attempt=%s/%s | "
+                    "model=%s | "
+                    "structured_output=%s",
+
+                    operation_name,
+
+                    attempt + 1,
+
+                    total_attempts,
+
+                    self.model,
+
+                    response_schema is not None
+                )
+
+                trace_log(
+                    "LLM_REQUEST",
+                    (
+                        "provider=gemini "
+                        f"model={self.model} "
+                        f"operation={operation_name} "
+                        f"attempt={attempt + 1}/"
+                        f"{total_attempts} "
+                        f"structured_output="
+                        f"{response_schema is not None}"
+                    )
+                )
+
+                config_kwargs = {
+
+                    "system_instruction":
+                        system_instruction,
+
+                    "temperature":
+                        self.temperature,
+
+                    "max_output_tokens":
+                        self.max_tokens
+                }
+
+                if response_schema is not None:
+
+                    config_kwargs[
+                        "response_mime_type"
+                    ] = "application/json"
+
+                    config_kwargs[
+                        "response_schema"
+                    ] = response_schema
+
+                response = (
+                    self.client
+                    .models
+                    .generate_content(
+
+                        model=self.model,
+
+                        contents=contents,
+
+                        config=(
+                            types
+                            .GenerateContentConfig(
+                                **config_kwargs
+                            )
                         )
                     )
                 )
-            )
 
-            # ------------------------------
-            # Token Usage
-            # ------------------------------
+                # ------------------------------
+                # Token Usage + Cost
+                # ------------------------------
 
-            _log_token_usage(
-                response
-            )
-
-            # ------------------------------
-            # Latency
-            # ------------------------------
-
-            latency = (
-                time.perf_counter()
-                - start_time
-            )
-
-            logger.info(
-                "LLM LATENCY | %.2f seconds",
-                latency
-            )
-
-            logger.info(
-                "LLM SUCCESS | attempt=%s",
-                attempt + 1
-            )
-
-            return response
-
-        except Exception as e:
-
-            latency = (
-                time.perf_counter()
-                - start_time
-            )
-
-            error_text = str(
-                e
-            ).lower()
-
-            logger.error(
-                "LLM ERROR | "
-                "attempt=%s | "
-                "latency=%.2f seconds | %s",
-                attempt + 1,
-                latency,
-                e
-            )
-
-            # ==========================================
-            # 1. HARD QUOTA EXHAUSTION
-            # ==========================================
-            #
-            # Example:
-            #
-            # GenerateRequestsPerDayPerProjectPerModel-FreeTier
-            #
-            # Do NOT retry.
-            # ==========================================
-
-            if _is_quota_exhausted(
-                error_text
-            ):
-
-                logger.error(
-                    "LLM QUOTA EXHAUSTED | "
-                    "model=%s | "
-                    "No retry will be attempted.",
-                    GEMINI_MODEL
+                self._log_token_usage(
+                    response
                 )
 
-                raise
+                # ------------------------------
+                # Latency
+                # ------------------------------
 
-            # ==========================================
-            # 2. PERMANENT ERROR
-            # ==========================================
-
-            if _is_permanent_error(
-                error_text
-            ):
-
-                logger.error(
-                    "LLM PERMANENT ERROR | "
-                    "model=%s | "
-                    "No retry will be attempted.",
-                    GEMINI_MODEL
+                latency = (
+                    time.perf_counter()
+                    - start_time
                 )
 
-                raise
+                logger.info(
+                    "LLM LATENCY | "
+                    "operation=%s | "
+                    "%.2f seconds",
 
-            # ==========================================
-            # 3. MAXIMUM RETRIES
-            # ==========================================
+                    operation_name,
 
-            if attempt >= LLM_MAX_RETRIES:
-
-                logger.error(
-                    "LLM FAILED | "
-                    "Maximum retries reached | "
-                    "attempts=%s",
-                    LLM_MAX_RETRIES + 1
+                    latency
                 )
 
-                raise
+                logger.info(
+                    "LLM SUCCESS | "
+                    "operation=%s | "
+                    "attempt=%s",
 
-            # ==========================================
-            # 4. DETERMINE WHETHER RETRY IS USEFUL
-            # ==========================================
+                    operation_name,
 
-            rate_limit_error = (
-                _is_rate_limit_error(
+                    attempt + 1
+                )
+
+                trace_log(
+                    "LLM_SUCCESS",
+                    (
+                        f"model={self.model} "
+                        f"operation={operation_name} "
+                        f"attempt={attempt + 1} "
+                        f"latency={latency:.2f}s"
+                    )
+                )
+
+                return response
+
+            except Exception as e:
+
+                latency = (
+                    time.perf_counter()
+                    - start_time
+                )
+
+                error_text = str(
+                    e
+                ).lower()
+
+                logger.error(
+                    "LLM ERROR | "
+                    "operation=%s | "
+                    "attempt=%s | "
+                    "latency=%.2f seconds | %s",
+
+                    operation_name,
+
+                    attempt + 1,
+
+                    latency,
+
+                    e
+                )
+
+                trace_log(
+                    "LLM_ERROR",
+                    (
+                        f"model={self.model} "
+                        f"operation={operation_name} "
+                        f"attempt={attempt + 1} "
+                        f"latency={latency:.2f}s "
+                        f"error={e}"
+                    ),
+                    logging.ERROR
+                )
+
+                # ==========================================
+                # HARD QUOTA
+                # ==========================================
+
+                if self._is_quota_exhausted(
                     error_text
-                )
-            )
+                ):
 
-            retryable_error = (
-                _is_retryable_error(
+                    logger.error(
+                        "LLM QUOTA EXHAUSTED | "
+                        "model=%s | "
+                        "operation=%s | "
+                        "No retry will be attempted.",
+
+                        self.model,
+
+                        operation_name
+                    )
+
+                    trace_log(
+                        "LLM_QUOTA_EXHAUSTED",
+                        (
+                            f"model={self.model} "
+                            f"operation={operation_name}"
+                        ),
+                        logging.ERROR
+                    )
+
+                    raise
+
+                # ==========================================
+                # PERMANENT ERROR
+                # ==========================================
+
+                if self._is_permanent_error(
                     error_text
+                ):
+
+                    logger.error(
+                        "LLM PERMANENT ERROR | "
+                        "model=%s | "
+                        "operation=%s | "
+                        "No retry will be attempted.",
+
+                        self.model,
+
+                        operation_name
+                    )
+
+                    trace_log(
+                        "LLM_PERMANENT_ERROR",
+                        (
+                            f"model={self.model} "
+                            f"operation={operation_name}"
+                        ),
+                        logging.ERROR
+                    )
+
+                    raise
+
+                # ==========================================
+                # MAXIMUM RETRIES
+                # ==========================================
+
+                if attempt >= self.max_retries:
+
+                    logger.error(
+                        "LLM FAILED | "
+                        "Maximum retries reached | "
+                        "operation=%s | "
+                        "attempts=%s",
+
+                        operation_name,
+
+                        total_attempts
+                    )
+
+                    trace_log(
+                        "LLM_RETRY_EXHAUSTED",
+                        (
+                            f"operation={operation_name} "
+                            f"attempts={total_attempts}"
+                        ),
+                        logging.ERROR
+                    )
+
+                    raise
+
+                # ==========================================
+                # ERROR TYPE
+                # ==========================================
+
+                rate_limit_error = (
+                    self._is_rate_limit_error(
+                        error_text
+                    )
                 )
-            )
 
-            # ------------------------------------------
-            # Retry temporary errors
-            # ------------------------------------------
+                retryable_error = (
+                    self._is_retryable_error(
+                        error_text
+                    )
+                )
 
-            if (
-                rate_limit_error
-                or retryable_error
-            ):
+                # ==========================================
+                # TEMPORARY ERROR
+                # ==========================================
+
+                if (
+                    rate_limit_error
+                    or retryable_error
+                ):
+
+                    backoff_time = (
+                        self._get_retry_delay(
+                            error_text,
+                            attempt
+                        )
+                    )
+
+                    reason = (
+                        "rate_limit"
+                        if rate_limit_error
+                        else "transient_error"
+                    )
+
+                    logger.warning(
+                        "LLM RETRY | "
+                        "provider=gemini | "
+                        "operation=%s | "
+                        "retry=%s | "
+                        "reason=%s | "
+                        "waiting=%.2f seconds",
+
+                        operation_name,
+
+                        attempt + 1,
+
+                        reason,
+
+                        backoff_time
+                    )
+
+                    trace_log(
+                        "LLM_RETRY",
+                        (
+                            f"retry={attempt + 1} "
+                            f"operation={operation_name} "
+                            f"reason={reason} "
+                            f"waiting={backoff_time:.2f}s"
+                        ),
+                        logging.WARNING
+                    )
+
+                    time.sleep(
+                        backoff_time
+                    )
+
+                    continue
+
+                # ==========================================
+                # UNKNOWN ERROR
+                # ==========================================
 
                 backoff_time = (
-                    LLM_INITIAL_BACKOFF
-                    * (2 ** attempt)
+                    self._get_retry_delay(
+                        error_text,
+                        attempt
+                    )
                 )
 
                 logger.warning(
                     "LLM RETRY | "
+                    "provider=gemini | "
+                    "operation=%s | "
                     "retry=%s | "
-                    "reason=%s | "
+                    "reason=unknown_error | "
                     "waiting=%.2f seconds",
+
+                    operation_name,
+
                     attempt + 1,
-                    (
-                        "rate_limit"
-                        if rate_limit_error
-                        else "transient_error"
-                    ),
+
                     backoff_time
+                )
+
+                trace_log(
+                    "LLM_RETRY",
+                    (
+                        f"retry={attempt + 1} "
+                        f"operation={operation_name} "
+                        "reason=unknown_error "
+                        f"waiting={backoff_time:.2f}s"
+                    ),
+                    logging.WARNING
                 )
 
                 time.sleep(
                     backoff_time
                 )
 
-                continue
+    # ==========================================
+    # Generate Answer
+    # ==========================================
 
-            # ==========================================
-            # 5. UNKNOWN ERROR
-            # ==========================================
-            #
-            # Unknown errors are treated as retryable
-            # because they may be temporary.
-            # ==========================================
+    def generate_answer(
+        self,
+        question: str,
+        context: str
+    ):
 
-            backoff_time = (
-                LLM_INITIAL_BACKOFF
-                * (2 ** attempt)
-            )
-
-            logger.warning(
-                "LLM RETRY | "
-                "retry=%s | "
-                "reason=unknown_error | "
-                "waiting=%.2f seconds",
-                attempt + 1,
-                backoff_time
-            )
-
-            time.sleep(
-                backoff_time
-            )
-
-
-# ==========================================
-# Generate Answer
-# ==========================================
-
-def generate_answer(
-    question: str,
-    context: str
-):
-    """
-    Generate an answer using the provided context.
-    """
-
-    user_prompt = f"""
+        user_prompt = f"""
 Context:
 {context}
 
@@ -454,34 +875,86 @@ Question:
 {question}
 """
 
-    response = _generate_with_retry(
-        contents=user_prompt,
-        system_instruction=(
-            "You are an operations analyst. "
-            "Answer the question using only "
-            "the provided context."
+        response = (
+            self._generate_with_retry(
+
+                contents=user_prompt,
+
+                system_instruction=(
+                    "You are an operations analyst. "
+                    "Answer the question using only "
+                    "the provided context."
+                ),
+
+                operation_name="answer_generation"
+            )
         )
+
+        return response.text
+
+    # ==========================================
+    # Generate Text
+    # ==========================================
+
+    def generate_text(
+        self,
+        system_prompt: str,
+        user_prompt: str,
+        response_schema=None,
+        operation_name: str = "text_generation"
+    ):
+
+        response = (
+            self._generate_with_retry(
+
+                contents=user_prompt,
+
+                system_instruction=(
+                    system_prompt
+                ),
+
+                response_schema=(
+                    response_schema
+                ),
+
+                operation_name=(
+                    operation_name
+                )
+            )
+        )
+
+        return response.text
+
+
+# ==========================================
+# Backward-Compatible Helper Functions
+# ==========================================
+
+def generate_answer(
+    question: str,
+    context: str
+):
+
+    service = LLMService()
+
+    return service.generate_answer(
+        question,
+        context
     )
 
-    return response.text
-
-
-# ==========================================
-# Generate Text
-# ==========================================
 
 def generate_text(
     system_prompt: str,
-    user_prompt: str
+    user_prompt: str,
+    response_schema=None,
+    operation_name: str = "text_generation"
 ):
-    """
-    Generate text using separate
-    system and user prompts.
-    """
 
-    response = _generate_with_retry(
-        contents=user_prompt,
-        system_instruction=system_prompt
+    service = LLMService()
+
+    return service.generate_text(
+        system_prompt,
+        user_prompt,
+        response_schema,
+        operation_name
     )
-
-    return response.text

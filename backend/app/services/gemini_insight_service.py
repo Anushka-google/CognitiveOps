@@ -8,7 +8,7 @@ from app.prompts.insight_analysis import (
 
 from app.models.insight import Insight
 
-from app.services.llm_service import generate_text
+from app.services.llm_service import LLMService
 
 from app.services.context_service import (
     ContextService
@@ -18,8 +18,78 @@ from app.services.vector_store import (
     get_context
 )
 
+from app.services.trace_service import (
+    set_operation_name,
+    trace_log
+)
+
 
 logger = logging.getLogger(__name__)
+
+
+# ==================================================
+# Native Structured Output Schemas
+# ==================================================
+
+INSIGHT_RESPONSE_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "root_cause": {
+            "type": "string"
+        },
+        "impact": {
+            "type": "string"
+        },
+        "recommendation": {
+            "type": "string"
+        }
+    },
+    "required": [
+        "root_cause",
+        "impact",
+        "recommendation"
+    ]
+}
+
+
+EVIDENCE_EVALUATION_SCHEMA = {
+    "type": "object",
+    "properties": {
+        "sufficient": {
+            "type": "boolean"
+        },
+        "relevance": {
+            "type": "number"
+        },
+        "specificity": {
+            "type": "number"
+        },
+        "support": {
+            "type": "number"
+        },
+        "completeness": {
+            "type": "number"
+        },
+        "reason": {
+            "type": "string"
+        },
+        "missing_information": {
+            "type": "array",
+            "items": {
+                "type": "string"
+            }
+        }
+    },
+    "required": [
+        "sufficient",
+        "relevance",
+        "specificity",
+        "support",
+        "completeness",
+        "reason",
+        "missing_information"
+    ]
+}
 
 
 class GeminiInsightService:
@@ -35,6 +105,10 @@ class GeminiInsightService:
             ContextService()
         )
 
+        self.llm_service = (
+            LLMService()
+        )
+
     # ==================================================
     # SELF-CORRECTION
     # Evidence Evaluation
@@ -45,19 +119,18 @@ class GeminiInsightService:
         insight: Insight,
         combined_evidence: dict | None = None
     ) -> dict:
-        """
-        Evaluate whether the available evidence
-        is sufficient to support the insight.
 
-        Gemini evaluates:
+        # --------------------------------------------------
+        # Observability: operation identification
+        # --------------------------------------------------
 
-        1. Relevance
-        2. Specificity
-        3. Support
-        4. Completeness
+        set_operation_name(
+            "evidence_evaluation"
+        )
 
-        Returns a structured evaluation.
-        """
+        trace_log(
+            "LLM_OPERATION_START"
+        )
 
         combined_evidence = (
             combined_evidence
@@ -152,16 +225,24 @@ Return ONLY valid JSON:
 
         try:
 
-            response_text = generate_text(
-                (
-                    "You are an evidence evaluation "
-                    "agent for an operational "
-                    "intelligence system. "
-                    "Evaluate evidence objectively. "
-                    "Do not invent facts. "
-                    "Return only valid JSON."
-                ),
-                evaluator_prompt
+            response_text = (
+                self.llm_service.generate_text(
+                    (
+                        "You are an evidence evaluation "
+                        "agent for an operational "
+                        "intelligence system. "
+                        "Evaluate evidence objectively. "
+                        "Do not invent facts. "
+                        "Return only valid JSON."
+                    ),
+                    evaluator_prompt,
+                    response_schema=(
+                        EVIDENCE_EVALUATION_SCHEMA
+                    ),
+                    operation_name=(
+                        "evidence_evaluation"
+                    )
+                )
             )
 
             evaluation = (
@@ -195,6 +276,11 @@ Return ONLY valid JSON:
                     ]
                 )
 
+            trace_log(
+                "LLM_OPERATION_END",
+                "status=success"
+            )
+
             return evaluation
 
         except Exception as e:
@@ -204,13 +290,11 @@ Return ONLY valid JSON:
                 e
             )
 
-            # ----------------------------------
-            # Fail closed
-            # ----------------------------------
-            #
-            # If evaluation itself fails,
-            # do NOT assume evidence is sufficient.
-            #
+            trace_log(
+                "LLM_OPERATION_END",
+                "status=failed",
+                logging.ERROR
+            )
 
             return {
                 "sufficient": False,
@@ -236,10 +320,6 @@ Return ONLY valid JSON:
         self,
         response_text: str
     ) -> dict:
-        """
-        Parse and validate Gemini's evidence
-        evaluation response.
-        """
 
         if not response_text:
 
@@ -287,10 +367,6 @@ Return ONLY valid JSON:
                     "must be a JSON object."
                 )
 
-            # ----------------------------------
-            # Sufficient
-            # ----------------------------------
-
             sufficient = evaluation.get(
                 "sufficient",
                 False
@@ -307,10 +383,6 @@ Return ONLY valid JSON:
                     ).lower()
                     == "true"
                 )
-
-            # ----------------------------------
-            # Numeric scores
-            # ----------------------------------
 
             relevance = self._normalize_score(
                 evaluation.get(
@@ -340,10 +412,6 @@ Return ONLY valid JSON:
                 )
             )
 
-            # ----------------------------------
-            # Reason
-            # ----------------------------------
-
             reason = evaluation.get(
                 "reason",
                 "No evaluation reason provided."
@@ -359,10 +427,6 @@ Return ONLY valid JSON:
                 )
 
             reason = reason.strip()
-
-            # ----------------------------------
-            # Missing information
-            # ----------------------------------
 
             missing_information = (
                 evaluation.get(
@@ -424,10 +488,6 @@ Return ONLY valid JSON:
         self,
         value
     ) -> float:
-        """
-        Convert a Gemini score into a safe
-        float between 0.0 and 1.0.
-        """
 
         try:
 
@@ -460,69 +520,84 @@ Return ONLY valid JSON:
         combined_evidence: dict | None = None,
         long_term_memory: list[str] | None = None
     ) -> Insight:
-        """
-        Generate root cause, impact, and recommendation
-        using workflow evidence, Jira evidence,
-        Slack evidence, retrieved RAG knowledge,
-        and previous workflow execution memory.
-        """
 
-        user_prompt = self._build_prompt(
-            insight,
-            combined_evidence,
-            long_term_memory
+        # --------------------------------------------------
+        # Observability: operation identification
+        # --------------------------------------------------
+
+        set_operation_name(
+            "insight_generation"
         )
 
-        response_text = generate_text(
-            SYSTEM_PROMPT,
-            user_prompt
+        trace_log(
+            "LLM_OPERATION_START"
         )
 
-        analysis = self._parse_response(
-            response_text
-        )
+        try:
 
-        # --------------------------------
-        # Validate Root Cause
-        # --------------------------------
+            user_prompt = self._build_prompt(
+                insight,
+                combined_evidence,
+                long_term_memory
+            )
 
-        root_cause = self._validate_field(
-            analysis.get("root_cause"),
-            "root_cause"
-        )
+            response_text = (
+                self.llm_service.generate_text(
+                    SYSTEM_PROMPT,
+                    user_prompt,
+                    response_schema=(
+                        INSIGHT_RESPONSE_SCHEMA
+                    ),
+                    operation_name=(
+                        "insight_generation"
+                    )
+                )
+            )
 
-        # --------------------------------
-        # Validate Impact
-        # --------------------------------
+            analysis = self._parse_response(
+                response_text
+            )
 
-        impact = self._validate_field(
-            analysis.get("impact"),
-            "impact"
-        )
+            root_cause = self._validate_field(
+                analysis.get("root_cause"),
+                "root_cause"
+            )
 
-        # --------------------------------
-        # Validate Recommendation
-        # --------------------------------
+            impact = self._validate_field(
+                analysis.get("impact"),
+                "impact"
+            )
 
-        recommendation = self._validate_field(
-            analysis.get("recommendation"),
-            "recommendation"
-        )
+            recommendation = self._validate_field(
+                analysis.get("recommendation"),
+                "recommendation"
+            )
 
-        # --------------------------------
-        # Validate Final Insight
-        # --------------------------------
+            validated_insight = Insight(
+                issue=insight.issue,
+                evidence=insight.evidence,
+                severity=insight.severity,
+                root_cause=root_cause,
+                impact=impact,
+                recommendation=recommendation
+            )
 
-        validated_insight = Insight(
-            issue=insight.issue,
-            evidence=insight.evidence,
-            severity=insight.severity,
-            root_cause=root_cause,
-            impact=impact,
-            recommendation=recommendation
-        )
+            trace_log(
+                "LLM_OPERATION_END",
+                "status=success"
+            )
 
-        return validated_insight
+            return validated_insight
+
+        except Exception:
+
+            trace_log(
+                "LLM_OPERATION_END",
+                "status=failed",
+                logging.ERROR
+            )
+
+            raise
 
     # ==================================================
     # Build Prompt
@@ -534,25 +609,12 @@ Return ONLY valid JSON:
         combined_evidence: dict | None = None,
         long_term_memory: list[str] | None = None
     ) -> str:
-        """
-        Build the final prompt using operational
-        evidence, retrieved RAG knowledge, and
-        previous workflow execution memory.
-        """
-
-        # --------------------------------
-        # Retrieve relevant knowledge
-        # --------------------------------
 
         retrieved_context = (
             self._get_rag_context(
                 insight
             )
         )
-
-        # --------------------------------
-        # Prepare combined context
-        # --------------------------------
 
         context_state = {
             **(
@@ -573,11 +635,6 @@ Return ONLY valid JSON:
                 or []
             )
         )
-
-        # --------------------------------
-        # ContextService owns
-        # complete context construction
-        # --------------------------------
 
         context = (
             self.context_service
@@ -600,9 +657,6 @@ Return ONLY valid JSON:
         self,
         insight: Insight
     ) -> str:
-        """
-        Retrieve relevant knowledge from ChromaDB.
-        """
 
         query = (
             f"{insight.issue} "
@@ -644,10 +698,6 @@ Return ONLY valid JSON:
         self,
         response_text: str
     ) -> dict:
-        """
-        Parse and validate the JSON response
-        returned by Gemini.
-        """
 
         if not response_text:
 
@@ -757,9 +807,6 @@ Return ONLY valid JSON:
         value,
         field_name: str
     ) -> str:
-        """
-        Validate an individual LLM output field.
-        """
 
         if value is None:
 
@@ -837,10 +884,6 @@ def generate_insight_analysis(
     combined_evidence: dict | None = None,
     long_term_memory: list[str] | None = None
 ) -> Insight:
-    """
-    Convenience function to generate
-    insight analysis.
-    """
 
     service = GeminiInsightService()
 
