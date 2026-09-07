@@ -15,15 +15,38 @@ def get_collection():
     return collection
 
 
-def add_chunks(chunks):
+def add_chunks(
+    chunks,
+    metadatas=None
+):
 
     collection = get_collection()
 
-    for chunk in chunks:
+    for index, chunk in enumerate(chunks):
+
+        metadata = None
+
+        if metadatas:
+
+            metadata = metadatas[index]
 
         collection.add(
-            documents=[chunk],
-            ids=[str(uuid.uuid4())]
+
+            documents=[
+                chunk
+            ],
+
+            ids=[
+                str(
+                    uuid.uuid4()
+                )
+            ],
+
+            metadatas=(
+                [metadata]
+                if metadata
+                else None
+            )
         )
 
 
@@ -35,20 +58,32 @@ def search_chunks(
     collection = get_collection()
 
     results = collection.query(
-        query_texts=[query],
+
+        query_texts=[
+            query
+        ],
+
         n_results=n_results
     )
 
     return results
 
 
-def get_context(query: str):
+def get_context(
+    query: str
+):
 
     collection = get_collection()
 
     results = collection.query(
-        query_texts=[query],
+
+        query_texts=[
+            query
+        ],
+
         n_results=1
     )
 
-    return results["documents"][0][0]
+    return results[
+        "documents"
+    ][0][0]
