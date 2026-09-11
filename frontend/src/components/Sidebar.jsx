@@ -1,6 +1,7 @@
 import { Link, useLocation } from "react-router-dom";
 import "./Sidebar.css";
 
+
 function Sidebar({ collapsed, setCollapsed }) {
   const location = useLocation();
 
@@ -17,6 +18,7 @@ function Sidebar({ collapsed, setCollapsed }) {
 
   const isDashboard = location.pathname === "/dashboard";
   const isWorkflow = location.pathname === "/workflow";
+  const isChat = location.pathname === "/chat";
 
   return (
     <aside
@@ -152,6 +154,22 @@ function Sidebar({ collapsed, setCollapsed }) {
               Workflow Explorer
             </span>
           )}
+        </Link>
+
+        <Link
+            to="/chat"
+            className={`sidebar-item sidebar-link ${
+            isChat ? "active" : ""
+            }`}
+            title={collapsed ? "AI Chat" : ""}
+        >
+        <span className="sidebar-icon">✦</span>
+
+        {!collapsed && (
+          <span className="sidebar-item-text">
+           AI Chat
+            </span>
+         )}
         </Link>
 
       </nav>

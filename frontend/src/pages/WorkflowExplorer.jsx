@@ -1,30 +1,118 @@
 import { useEffect, useState } from "react";
-import { getWorkflowAnalysis } from "../services/workflowApi";
+
+import {
+  getWorkflowAnalysis,
+  getRootCauseGraph,
+} from "../services/workflowApi";
+
+import RootCauseGraph from "../components/RootCauseGraph";
+
 import "./WorkflowExplorer.css";
 
+
 function WorkflowExplorer() {
-  const [workflows, setWorkflows] = useState([]);
-  const [selectedWorkflow, setSelectedWorkflow] = useState(null);
 
-  const [search, setSearch] = useState("");
-  const [statusFilter, setStatusFilter] = useState("All");
-  const [priorityFilter, setPriorityFilter] = useState("All");
+  // =========================================================
+  // WORKFLOW DATA
+  // =========================================================
 
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [
+    workflows,
+    setWorkflows
+  ] = useState([]);
+
+  const [
+    selectedWorkflow,
+    setSelectedWorkflow
+  ] = useState(null);
+
+
+  // =========================================================
+  // FILTERS
+  // =========================================================
+
+  const [
+    search,
+    setSearch
+  ] = useState("");
+
+  const [
+    statusFilter,
+    setStatusFilter
+  ] = useState("All");
+
+  const [
+    priorityFilter,
+    setPriorityFilter
+  ] = useState("All");
+
+
+  // =========================================================
+  // LOADING / ERROR
+  // =========================================================
+
+  const [
+    loading,
+    setLoading
+  ] = useState(true);
+
+  const [
+    error,
+    setError
+  ] = useState(null);
+
+
+  // =========================================================
+  // ROOT CAUSE GRAPH
+  // =========================================================
+
+  const [
+    rootCauseGraph,
+    setRootCauseGraph
+  ] = useState({
+    nodes: [],
+    edges: [],
+  });
+
+  const [
+    graphLoading,
+    setGraphLoading
+  ] = useState(true);
+
+  const [
+    graphError,
+    setGraphError
+  ] = useState(null);
+
+
+  // =========================================================
+  // LOAD WORKFLOWS + ROOT CAUSE GRAPH
+  // =========================================================
 
   useEffect(() => {
-    async function loadWorkflows() {
+
+    async function loadData() {
+
+      // -----------------------------------------------------
+      // WORKFLOW DATA
+      // -----------------------------------------------------
+
       try {
-        const result = await getWorkflowAnalysis();
+
+        const result =
+          await getWorkflowAnalysis();
 
         console.log(
           "Workflow Explorer Response:",
           result
         );
 
-        setWorkflows(result.workflows || []);
+        setWorkflows(
+          result.workflows || []
+        );
+
       } catch (err) {
+
         console.error(
           "Workflow Explorer error:",
           err
@@ -33,83 +121,203 @@ function WorkflowExplorer() {
         setError(
           "Unable to load workflow data."
         );
+
       } finally {
+
         setLoading(false);
+
       }
+
+
+      // -----------------------------------------------------
+      // ROOT CAUSE GRAPH DATA
+      // -----------------------------------------------------
+
+      try {
+
+        const graphResult =
+          await getRootCauseGraph();
+
+        console.log(
+          "Root Cause Graph Response:",
+          graphResult
+        );
+
+        setRootCauseGraph({
+          nodes:
+            Array.isArray(
+              graphResult.nodes
+            )
+              ? graphResult.nodes
+              : [],
+
+          edges:
+            Array.isArray(
+              graphResult.edges
+            )
+              ? graphResult.edges
+              : [],
+        });
+
+      } catch (err) {
+
+        console.error(
+          "Root Cause Graph error:",
+          err
+        );
+
+        setGraphError(
+          "Unable to load root cause graph."
+        );
+
+      } finally {
+
+        setGraphLoading(false);
+
+      }
+
     }
 
-    loadWorkflows();
+
+    loadData();
+
   }, []);
 
+
+  // =========================================================
+  // FILTER WORKFLOWS
+  // =========================================================
+
   const filteredWorkflows =
-    workflows.filter((workflow) => {
+    workflows.filter(
+      (workflow) => {
 
-      const matchesSearch =
-        workflow.ticket_id
-          ?.toLowerCase()
-          .includes(search.toLowerCase()) ||
-        workflow.title
-          ?.toLowerCase()
-          .includes(search.toLowerCase()) ||
-        workflow.assignee
-          ?.toLowerCase()
-          .includes(search.toLowerCase());
+        const searchValue =
+          search.toLowerCase();
 
-      const matchesStatus =
-        statusFilter === "All" ||
-        workflow.status === statusFilter;
 
-      const matchesPriority =
-        priorityFilter === "All" ||
-        workflow.priority === priorityFilter;
+        const matchesSearch =
 
-      return (
-        matchesSearch &&
-        matchesStatus &&
-        matchesPriority
-      );
-    });
+          workflow.ticket_id
+            ?.toLowerCase()
+            .includes(searchValue)
+
+          ||
+
+          workflow.title
+            ?.toLowerCase()
+            .includes(searchValue)
+
+          ||
+
+          workflow.assignee
+            ?.toLowerCase()
+            .includes(searchValue);
+
+
+        const matchesStatus =
+          statusFilter === "All" ||
+          workflow.status === statusFilter;
+
+
+        const matchesPriority =
+          priorityFilter === "All" ||
+          workflow.priority === priorityFilter;
+
+
+        return (
+          matchesSearch &&
+          matchesStatus &&
+          matchesPriority
+        );
+
+      }
+    );
+
+
+  // =========================================================
+  // LOADING STATE
+  // =========================================================
 
   if (loading) {
+
     return (
-      <div className="workflow-explorer-state">
+
+      <div
+        className="workflow-explorer-state"
+      >
         Loading workflow explorer...
       </div>
+
     );
+
   }
+
+
+  // =========================================================
+  // ERROR STATE
+  // =========================================================
 
   if (error) {
+
     return (
-      <div className="workflow-explorer-state">
+
+      <div
+        className="workflow-explorer-state"
+      >
         {error}
       </div>
+
     );
+
   }
 
+
+  // =========================================================
+  // PAGE
+  // =========================================================
+
   return (
-    <div className="workflow-explorer">
 
-      {/* HEADER */}
+    <div
+      className="workflow-explorer"
+    >
 
-      <div className="workflow-explorer-header">
+
+      {/* =====================================================
+          HEADER
+      ===================================================== */}
+
+      <div
+        className="workflow-explorer-header"
+      >
 
         <div>
-          <span className="page-eyebrow">
+
+          <span
+            className="page-eyebrow"
+          >
             WORKFLOW INTELLIGENCE
           </span>
+
 
           <h1>
             Workflow Explorer
           </h1>
+
 
           <p>
             Explore Jira workflows, identify
             delays, and inspect ticket-level
             operational intelligence.
           </p>
+
         </div>
 
-        <div className="workflow-count">
+
+        <div
+          className="workflow-count"
+        >
 
           <strong>
             {workflows.length}
@@ -124,26 +332,36 @@ function WorkflowExplorer() {
       </div>
 
 
-      {/* FILTER BAR */}
+      {/* =====================================================
+          FILTER BAR
+      ===================================================== */}
 
-      <div className="workflow-toolbar">
+      <div
+        className="workflow-toolbar"
+      >
 
         <input
           type="text"
           placeholder="Search ticket, title or assignee..."
           value={search}
           onChange={(e) =>
-            setSearch(e.target.value)
+            setSearch(
+              e.target.value
+            )
           }
           className="workflow-search"
         />
 
+
         <select
           value={statusFilter}
           onChange={(e) =>
-            setStatusFilter(e.target.value)
+            setStatusFilter(
+              e.target.value
+            )
           }
         >
+
           <option value="All">
             All Status
           </option>
@@ -163,16 +381,25 @@ function WorkflowExplorer() {
           <option value="Done">
             Done
           </option>
+
         </select>
+
 
         <select
           value={priorityFilter}
           onChange={(e) =>
-            setPriorityFilter(e.target.value)
+            setPriorityFilter(
+              e.target.value
+            )
           }
         >
+
           <option value="All">
             All Priority
+          </option>
+
+          <option value="Highest">
+            Highest
           </option>
 
           <option value="High">
@@ -183,285 +410,508 @@ function WorkflowExplorer() {
             Medium
           </option>
 
+          <option value="Low">
+            Low
+          </option>
+
           <option value="Unknown">
             Unknown
           </option>
+
         </select>
 
       </div>
 
 
-      {/* MAIN CONTENT */}
+      {/* =====================================================
+          ROOT CAUSE GRAPH
+      ===================================================== */}
 
-      <div className="workflow-content">
+      <section
+        className="root-cause-section"
+      >
 
-        <div className="workflow-list">
+        <div
+          className="root-cause-section-header"
+        >
 
-          <div className="workflow-list-header">
+          <div>
 
-            <span>
-              {filteredWorkflows.length} workflows found
+            <span
+              className="page-eyebrow"
+            >
+              ROOT CAUSE ANALYSIS
             </span>
 
+
+            <h2>
+              Workflow Dependency Graph
+            </h2>
+
+
+            <p>
+              Visualize Jira dependencies,
+              blockers, ownership and services.
+            </p>
+
           </div>
-
-          {filteredWorkflows.length === 0 ? (
-
-            <div className="empty-workflows">
-              No workflows match your filters.
-            </div>
-
-          ) : (
-
-            filteredWorkflows.map(
-              (workflow) => (
-
-                <div
-                  key={workflow.ticket_id}
-                  className={
-                    selectedWorkflow?.ticket_id ===
-                    workflow.ticket_id
-                      ? "workflow-card selected"
-                      : "workflow-card"
-                  }
-                  onClick={() =>
-                    setSelectedWorkflow(
-                      workflow
-                    )
-                  }
-                >
-
-                  <div className="workflow-card-top">
-
-                    <span className="ticket-id">
-                      {workflow.ticket_id}
-                    </span>
-
-                    <span
-                      className={`priority-badge priority-${workflow.priority?.toLowerCase()}`}
-                    >
-                      {workflow.priority}
-                    </span>
-
-                  </div>
-
-                  <h3>
-                    {workflow.title}
-                  </h3>
-
-                  <div className="workflow-meta">
-
-                    <span>
-                      {workflow.status}
-                    </span>
-
-                    <span>
-                      {workflow.assignee}
-                    </span>
-
-                  </div>
-
-                  <div className="workflow-card-bottom">
-
-                    <span>
-                      Waiting:
-                      <strong>
-                        {" "}
-                        {workflow.days_waiting}
-                        {" "}
-                        days
-                      </strong>
-                    </span>
-
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-
-                        setSelectedWorkflow(
-                          workflow
-                        );
-                      }}
-                    >
-                      View Details →
-                    </button>
-
-                  </div>
-
-                </div>
-
-              )
-            )
-
-          )}
 
         </div>
 
 
-        {/* DETAIL PANEL */}
+        {
+          graphLoading ? (
 
-        <div className="workflow-detail">
+            <div
+              className="root-cause-empty"
+            >
+              Loading root cause graph...
+            </div>
 
-          {!selectedWorkflow ? (
+          ) : graphError ? (
 
-            <div className="detail-placeholder">
-
-              <div className="detail-placeholder-icon">
-                ◈
-              </div>
-
-              <h2>
-                Select a workflow
-              </h2>
-
-              <p>
-                Select a ticket from the list
-                to inspect its workflow details.
-              </p>
-
+            <div
+              className="root-cause-empty"
+            >
+              {graphError}
             </div>
 
           ) : (
 
-            <>
+            <RootCauseGraph
+              nodes={
+                rootCauseGraph.nodes
+              }
 
-              <div className="detail-header">
+              edges={
+                rootCauseGraph.edges
+              }
+            />
 
-                <div>
+          )
+        }
 
-                  <span className="ticket-id">
-                    {selectedWorkflow.ticket_id}
-                  </span>
+      </section>
 
-                  <h2>
-                    {selectedWorkflow.title}
-                  </h2>
 
-                </div>
+      {/* =====================================================
+          MAIN CONTENT
+      ===================================================== */}
 
-                <span
-                  className={`priority-badge priority-${selectedWorkflow.priority?.toLowerCase()}`}
+      <div
+        className="workflow-content"
+      >
+
+
+        {/* ===================================================
+            WORKFLOW LIST
+        =================================================== */}
+
+        <div
+          className="workflow-list"
+        >
+
+          <div
+            className="workflow-list-header"
+          >
+
+            <span>
+              {filteredWorkflows.length}
+              {" "}
+              workflows found
+            </span>
+
+          </div>
+
+
+          {
+            filteredWorkflows.length === 0 ? (
+
+              <div
+                className="empty-workflows"
+              >
+                No workflows match your filters.
+              </div>
+
+            ) : (
+
+              filteredWorkflows.map(
+                (workflow) => (
+
+                  <div
+                    key={
+                      workflow.ticket_id
+                    }
+
+                    className={
+                      selectedWorkflow?.ticket_id ===
+                      workflow.ticket_id
+
+                        ? "workflow-card selected"
+
+                        : "workflow-card"
+                    }
+
+                    onClick={() =>
+                      setSelectedWorkflow(
+                        workflow
+                      )
+                    }
+                  >
+
+
+                    {/* CARD TOP */}
+
+                    <div
+                      className="workflow-card-top"
+                    >
+
+                      <span
+                        className="ticket-id"
+                      >
+                        {workflow.ticket_id}
+                      </span>
+
+
+                      <span
+                        className={
+                          `priority-badge priority-${workflow.priority?.toLowerCase()}`
+                        }
+                      >
+                        {workflow.priority}
+                      </span>
+
+                    </div>
+
+
+                    {/* TITLE */}
+
+                    <h3>
+                      {workflow.title}
+                    </h3>
+
+
+                    {/* META */}
+
+                    <div
+                      className="workflow-meta"
+                    >
+
+                      <span>
+                        {workflow.status}
+                      </span>
+
+                      <span>
+                        {workflow.assignee}
+                      </span>
+
+                    </div>
+
+
+                    {/* BOTTOM */}
+
+                    <div
+                      className="workflow-card-bottom"
+                    >
+
+                      <span>
+
+                        Waiting:
+
+                        <strong>
+
+                          {" "}
+
+                          {workflow.days_waiting}
+
+                          {" "}
+
+                          days
+
+                        </strong>
+
+                      </span>
+
+
+                      <button
+                        onClick={(e) => {
+
+                          e.stopPropagation();
+
+                          setSelectedWorkflow(
+                            workflow
+                          );
+
+                        }}
+                      >
+                        View Details →
+                      </button>
+
+                    </div>
+
+                  </div>
+
+                )
+              )
+
+            )
+          }
+
+        </div>
+
+
+        {/* ===================================================
+            DETAIL PANEL
+        =================================================== */}
+
+        <div
+          className="workflow-detail"
+        >
+
+          {
+            !selectedWorkflow ? (
+
+              <div
+                className="detail-placeholder"
+              >
+
+                <div
+                  className="detail-placeholder-icon"
                 >
-                  {selectedWorkflow.priority}
-                </span>
-
-              </div>
-
-
-              <div className="detail-status">
-
-                <span>
-                  Status
-                </span>
-
-                <strong>
-                  {selectedWorkflow.status}
-                </strong>
-
-              </div>
-
-
-              <div className="detail-grid">
-
-                <div className="detail-item">
-                  <span>
-                    Assignee
-                  </span>
-
-                  <strong>
-                    {selectedWorkflow.assignee}
-                  </strong>
+                  ◈
                 </div>
 
 
-                <div className="detail-item">
-                  <span>
-                    Waiting Time
-                  </span>
+                <h2>
+                  Select a workflow
+                </h2>
 
-                  <strong>
-                    {selectedWorkflow.days_waiting} days
-                  </strong>
-                </div>
-
-
-                <div className="detail-item">
-                  <span>
-                    Due Date
-                  </span>
-
-                  <strong>
-                    {selectedWorkflow.due_date || "Not set"}
-                  </strong>
-                </div>
-
-
-                <div className="detail-item">
-                  <span>
-                    Created
-                  </span>
-
-                  <strong>
-                    {selectedWorkflow.created_at
-                      ? new Date(
-                          selectedWorkflow.created_at
-                        ).toLocaleDateString()
-                      : "Unknown"}
-                  </strong>
-                </div>
-
-              </div>
-
-
-              <div className="detail-section">
-
-                <span className="detail-section-label">
-                  WORKFLOW SIGNAL
-                </span>
-
-                <h3>
-                  Operational waiting time
-                </h3>
 
                 <p>
-                  This ticket has been waiting for{" "}
-                  <strong>
-                    {selectedWorkflow.days_waiting}
-                    {" "}
-                    days
-                  </strong>
-                  . Extended waiting time may
-                  indicate a workflow bottleneck
-                  requiring investigation.
+                  Select a ticket from the list
+                  to inspect its workflow details.
                 </p>
 
               </div>
 
+            ) : (
 
-              <div className="detail-section recommendation-box">
+              <>
 
-                <span className="detail-section-label">
-                  RECOMMENDED ACTION
-                </span>
+                {/* DETAIL HEADER */}
 
-                <p>
-                  Review this ticket's current
-                  workflow state and investigate
-                  whether an approval, dependency,
-                  or assignment is causing the delay.
-                </p>
+                <div
+                  className="detail-header"
+                >
 
-              </div>
+                  <div>
 
-            </>
+                    <span
+                      className="ticket-id"
+                    >
+                      {selectedWorkflow.ticket_id}
+                    </span>
 
-          )}
+
+                    <h2>
+                      {selectedWorkflow.title}
+                    </h2>
+
+                  </div>
+
+
+                  <span
+                    className={
+                      `priority-badge priority-${selectedWorkflow.priority?.toLowerCase()}`
+                    }
+                  >
+                    {selectedWorkflow.priority}
+                  </span>
+
+                </div>
+
+
+                {/* STATUS */}
+
+                <div
+                  className="detail-status"
+                >
+
+                  <span>
+                    Status
+                  </span>
+
+
+                  <strong>
+                    {selectedWorkflow.status}
+                  </strong>
+
+                </div>
+
+
+                {/* DETAIL GRID */}
+
+                <div
+                  className="detail-grid"
+                >
+
+                  <div
+                    className="detail-item"
+                  >
+
+                    <span>
+                      Assignee
+                    </span>
+
+                    <strong>
+                      {selectedWorkflow.assignee}
+                    </strong>
+
+                  </div>
+
+
+                  <div
+                    className="detail-item"
+                  >
+
+                    <span>
+                      Waiting Time
+                    </span>
+
+                    <strong>
+                      {selectedWorkflow.days_waiting}
+                      {" "}
+                      days
+                    </strong>
+
+                  </div>
+
+
+                  <div
+                    className="detail-item"
+                  >
+
+                    <span>
+                      Due Date
+                    </span>
+
+                    <strong>
+                      {
+                        selectedWorkflow.due_date ||
+                        "Not set"
+                      }
+                    </strong>
+
+                  </div>
+
+
+                  <div
+                    className="detail-item"
+                  >
+
+                    <span>
+                      Created
+                    </span>
+
+                    <strong>
+
+                      {
+                        selectedWorkflow.created_at
+
+                          ? new Date(
+                              selectedWorkflow.created_at
+                            ).toLocaleDateString()
+
+                          : "Unknown"
+                      }
+
+                    </strong>
+
+                  </div>
+
+                </div>
+
+
+                {/* WORKFLOW SIGNAL */}
+
+                <div
+                  className="detail-section"
+                >
+
+                  <span
+                    className="detail-section-label"
+                  >
+                    WORKFLOW SIGNAL
+                  </span>
+
+
+                  <h3>
+                    Operational waiting time
+                  </h3>
+
+
+                  <p>
+
+                    This ticket has been waiting
+                    for{" "}
+
+                    <strong>
+                      {selectedWorkflow.days_waiting}
+                      {" "}
+                      days
+                    </strong>
+
+                    .
+
+                    Extended waiting time may
+                    indicate a workflow bottleneck
+                    requiring investigation.
+
+                  </p>
+
+                </div>
+
+
+                {/* RECOMMENDATION */}
+
+                <div
+                  className={
+                    "detail-section recommendation-box"
+                  }
+                >
+
+                  <span
+                    className="detail-section-label"
+                  >
+                    RECOMMENDED ACTION
+                  </span>
+
+
+                  <p>
+
+                    Review this ticket's current
+                    workflow state and investigate
+                    whether an approval, dependency,
+                    or assignment is causing the delay.
+
+                  </p>
+
+                </div>
+
+              </>
+
+            )
+          }
 
         </div>
 
       </div>
 
     </div>
+
   );
+
 }
+
 
 export default WorkflowExplorer;

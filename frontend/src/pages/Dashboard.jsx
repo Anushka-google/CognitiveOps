@@ -1,38 +1,109 @@
-import { useEffect, useState } from "react";
+import {
+  useEffect,
+  useState,
+} from "react";
 
-import { getWorkflowAnalysis } from "../services/workflowApi";
-import { getRiskScores } from "../services/riskApi";
+import {
+  useLocation,
+} from "react-router-dom";
 
-import Sidebar from "../components/Sidebar";
-import MetricCard from "../components/MetricCard";
-import InsightsTable from "../components/InsightsTable";
-import InsightCard from "../components/InsightCard";
-import IssuesChart from "../components/IssuesChart";
-import WorkflowTimeline from "../components/WorkflowTimeline";
-import BottleneckCard from "../components/BottleneckCard";
-import SeverityPieChart from "../components/SeverityPieChart";
-import RiskCards from "../components/RiskCards";
-import RiskPieChart from "../components/RiskPieChart";
-import RiskTable from "../components/RiskTable";
-import ExecutiveSummary from "../components/ExecutiveSummary";
+import Chat from "./pages/Chat";
 
-import "./Dashboard.css";
+import {
+  getWorkflowAnalysis
+} from "./services/workflowApi";
+
+import {
+  getRiskScores
+} from "./services/riskApi";
+
+import {
+  getExecutionStats,
+  getExecutions,
+  getPendingApproval,
+} from "./services/executionApi";
+
+import Sidebar from "./components/Sidebar";
+import MetricCard from "./components/MetricCard";
+import InsightsTable from "./components/InsightsTable";
+import InsightCard from "./components/InsightCard";
+import IssuesChart from "./components/IssuesChart";
+import WorkflowTimeline from "./components/WorkflowTimeline";
+import BottleneckCard from "./components/BottleneckCard";
+import SeverityPieChart from "./components/SeverityPieChart";
+import RiskCards from "./components/RiskCards";
+import RiskPieChart from "./components/RiskPieChart";
+import RiskTable from "./components/RiskTable";
+import ExecutiveSummary from "./components/ExecutiveSummary";
+import ApprovalPanel from "./components/ApprovalPanel";
+
+import "./pages/Dashboard.css";
+
 
 function Dashboard() {
-  const [data, setData] = useState(null);
-  const [riskData, setRiskData] = useState(null);
-  const [error, setError] = useState(null);
 
-  const [sidebarCollapsed, setSidebarCollapsed] =
-    useState(false);
+  const location = useLocation();
+
+
+  const [
+    data,
+    setData
+  ] = useState(null);
+
+  const [
+    riskData,
+    setRiskData
+  ] = useState(null);
+
+  const [
+    executionData,
+    setExecutionData
+  ] = useState([]);
+
+  const [
+    executionStats,
+    setExecutionStats
+  ] = useState(null);
+
+  const [
+    pendingApproval,
+    setPendingApproval
+  ] = useState(null);
+
+  const [
+    error,
+    setError
+  ] = useState(null);
+
+  const [
+    sidebarCollapsed,
+    setSidebarCollapsed
+  ] = useState(false);
+
+
+  // =========================================
+  // LOAD DASHBOARD DATA
+  // =========================================
 
   useEffect(() => {
+
     async function loadData() {
+
       try {
+
+        console.log(
+          "🔥 UPDATED DASHBOARD IS RUNNING"
+        );
+
         console.log(
           "API_URL:",
           import.meta.env.VITE_API_URL
         );
+
+
+        // =========================
+        // WORKFLOW ANALYSIS
+        // =========================
 
         const workflowResult =
           await getWorkflowAnalysis();
@@ -42,6 +113,11 @@ function Dashboard() {
           workflowResult
         );
 
+
+        // =========================
+        // RISK ANALYSIS
+        // =========================
+
         const riskResult =
           await getRiskScores();
 
@@ -50,10 +126,94 @@ function Dashboard() {
           riskResult
         );
 
-        setData(workflowResult);
-        setRiskData(riskResult);
 
-      } catch (err) {
+        // =========================
+        // EXECUTION HISTORY
+        // =========================
+
+        const executionResult =
+          await getExecutions(
+            0,
+            20
+          );
+
+        console.log(
+          "Execution Response:",
+          executionResult
+        );
+
+
+        // =========================
+        // EXECUTION STATISTICS
+        // =========================
+
+        const executionStatsResult =
+          await getExecutionStats();
+
+        console.log(
+          "Execution Stats:",
+          executionStatsResult
+        );
+
+
+        // =========================
+        // PENDING HUMAN APPROVAL
+        // =========================
+
+        const pendingApprovalResult =
+          await getPendingApproval();
+
+        console.log(
+          "Pending Approval Response:",
+          pendingApprovalResult
+        );
+
+
+        // =========================
+        // SET STATE
+        // =========================
+
+        setData(
+          workflowResult
+        );
+
+        setRiskData(
+          riskResult
+        );
+
+        setExecutionData(
+          executionResult
+        );
+
+        setExecutionStats(
+          executionStatsResult
+        );
+
+
+        // =========================================
+        // STORE LATEST PENDING APPROVAL
+        // =========================================
+
+        setPendingApproval(
+
+          Array.isArray(
+            pendingApprovalResult
+          )
+
+            ? (
+                pendingApprovalResult.length > 0
+                  ? pendingApprovalResult[0]
+                  : null
+              )
+
+            : pendingApprovalResult
+
+        );
+
+      }
+
+      catch (err) {
+
         console.error(
           "Dashboard loading error:",
           err
@@ -62,21 +222,43 @@ function Dashboard() {
         setError(
           "Unable to load workflow intelligence."
         );
+
       }
+
     }
 
+
     loadData();
+
   }, []);
 
-  /* =========================
-     ERROR STATE
-  ========================= */
+
+  // =========================================
+  // PHASE 3.13 - CHAT
+  // =========================================
+
+  if (location.pathname === "/chat") {
+
+    return <Chat />;
+
+  }
+
+
+  // =========================================
+  // ERROR STATE
+  // =========================================
 
   if (error) {
-    return (
-      <div className="dashboard-state-screen">
 
-        <div className="state-card">
+    return (
+
+      <div
+        className="dashboard-state-screen"
+      >
+
+        <div
+          className="state-card"
+        >
 
           <div className="state-icon">
             !
@@ -101,24 +283,36 @@ function Dashboard() {
         </div>
 
       </div>
+
     );
+
   }
 
-  /* =========================
-     LOADING STATE
-  ========================= */
+
+  // =========================================
+  // LOADING STATE
+  // =========================================
 
   if (
     !data ||
     !riskData ||
-    !data.insights
+    !data.insights ||
+    !executionStats
   ) {
+
     return (
-      <div className="dashboard-state-screen">
 
-        <div className="dashboard-loader">
+      <div
+        className="dashboard-state-screen"
+      >
 
-          <div className="loader-ring"></div>
+        <div
+          className="dashboard-loader"
+        >
+
+          <div
+            className="loader-ring"
+          ></div>
 
           <h2>
             Analyzing workflow intelligence
@@ -132,15 +326,77 @@ function Dashboard() {
         </div>
 
       </div>
+
     );
+
   }
+
+
+  // =========================================
+  // FIRST INSIGHT
+  // =========================================
 
   const firstInsight =
     data.insights.length > 0
       ? data.insights[0]
       : null;
 
+
+  // =========================================
+  // SLA PREDICTION
+  // =========================================
+
+  const slaPrediction =
+    riskData.sla_prediction || {};
+
+
+  const slaDecision =
+    riskData.sla_decision || {};
+
+
+  const slaProbability =
+    typeof slaPrediction.sla_breach_probability === "number"
+      ? (
+          slaPrediction.sla_breach_probability * 100
+        ).toFixed(1)
+      : "N/A";
+
+
+  const slaRisk =
+    slaPrediction.risk_level || "N/A";
+
+
+  const slaFactors =
+    Array.isArray(
+      slaDecision.contributing_factors
+    )
+      ? slaDecision.contributing_factors
+      : [];
+
+
+  const slaExplanation =
+    slaDecision.explanation ||
+    "No SLA explanation is currently available.";
+
+
+  const slaRecommendation =
+    slaDecision.recommendation ||
+    "No SLA recommendation is currently available.";
+
+
+  console.log(
+    "SLA Prediction:",
+    slaPrediction
+  );
+
+  console.log(
+    "SLA Decision:",
+    slaDecision
+  );
+
+
   return (
+
     <div
       className={
         sidebarCollapsed
@@ -149,26 +405,33 @@ function Dashboard() {
       }
     >
 
-      {/* =========================
+      {/* =========================================
           SIDEBAR
-      ========================= */}
+      ========================================= */}
 
       <Sidebar
-        collapsed={sidebarCollapsed}
-        setCollapsed={setSidebarCollapsed}
+        collapsed={
+          sidebarCollapsed
+        }
+
+        setCollapsed={
+          setSidebarCollapsed
+        }
       />
 
 
-      {/* =========================
+      {/* =========================================
           MAIN CONTENT
-      ========================= */}
+      ========================================= */}
 
-      <main className="dashboard-main">
+      <main
+        className="dashboard-main"
+      >
 
 
-        {/* =========================
+        {/* =========================================
             OVERVIEW
-        ========================= */}
+        ========================================= */}
 
         <section
           className="dashboard-header"
@@ -177,7 +440,9 @@ function Dashboard() {
 
           <div>
 
-            <div className="dashboard-eyebrow">
+            <div
+              className="dashboard-eyebrow"
+            >
               WORKFLOW INTELLIGENCE
             </div>
 
@@ -193,9 +458,14 @@ function Dashboard() {
 
           </div>
 
-          <div className="analysis-status">
 
-            <span className="analysis-dot"></span>
+          <div
+            className="analysis-status"
+          >
+
+            <span
+              className="analysis-dot"
+            ></span>
 
             <div>
 
@@ -214,19 +484,23 @@ function Dashboard() {
         </section>
 
 
-        {/* =========================
+        {/* =========================================
             EXECUTIVE SUMMARY
-        ========================= */}
+        ========================================= */}
 
         <section
           className="dashboard-section"
         >
 
-          <div className="section-label-row">
+          <div
+            className="section-label-row"
+          >
 
             <div>
 
-              <span className="section-kicker">
+              <span
+                className="section-kicker"
+              >
                 EXECUTIVE INTELLIGENCE
               </span>
 
@@ -236,29 +510,43 @@ function Dashboard() {
 
             </div>
 
-            <span className="ai-generated">
+            <span
+              className="ai-generated"
+            >
               AI Generated
             </span>
 
           </div>
 
-          <div className="executive-wrapper">
+
+          <div
+            className="executive-wrapper"
+          >
 
             <ExecutiveSummary
+
+              summary={
+                data.executive_summary
+              }
+
               workflowHealth={
                 data.workflow_health
               }
+
               totalIssues={
                 data.total_issues
               }
+
               highSeverity={
                 data.high_severity_issues
               }
+
               bottleneck={
                 firstInsight
                   ? firstInsight.issue
                   : "No bottlenecks detected"
               }
+
             />
 
           </div>
@@ -266,19 +554,107 @@ function Dashboard() {
         </section>
 
 
-        {/* =========================
+        {/* =========================================
+            HUMAN-IN-THE-LOOP APPROVAL
+        ========================================= */}
+
+        {
+          pendingApproval &&
+          pendingApproval.execution_id &&
+          pendingApproval.proposed_action && (
+
+            <ApprovalPanel
+
+              executionId={
+                pendingApproval.execution_id
+              }
+
+              proposedAction={
+                pendingApproval.proposed_action
+              }
+
+              approvalReason={
+                pendingApproval.approval_reason
+              }
+
+              onComplete={async () => {
+
+                try {
+
+                  const updatedExecutions =
+                    await getExecutions(
+                      0,
+                      20
+                    );
+
+                  const updatedStats =
+                    await getExecutionStats();
+
+                  const updatedPending =
+                    await getPendingApproval();
+
+
+                  setExecutionData(
+                    updatedExecutions
+                  );
+
+                  setExecutionStats(
+                    updatedStats
+                  );
+
+
+                  setPendingApproval(
+
+                    Array.isArray(
+                      updatedPending
+                    )
+
+                      ? (
+                          updatedPending.length > 0
+                            ? updatedPending[0]
+                            : null
+                        )
+
+                      : updatedPending
+
+                  );
+
+                }
+
+                catch (err) {
+
+                  console.error(
+                    "Failed to refresh execution data:",
+                    err
+                  );
+
+                }
+
+              }}
+
+            />
+
+          )
+        }
+
+
+        {/* =========================================
             KPI METRICS
-        ========================= */}
+        ========================================= */}
 
         <section
           className="dashboard-section"
         >
 
-          <div className="section-label-row">
+          <div
+            className="section-label-row"
+          >
 
             <div>
 
-              <span className="section-kicker">
+              <span
+                className="section-kicker"
+              >
                 KEY METRICS
               </span>
 
@@ -290,7 +666,10 @@ function Dashboard() {
 
           </div>
 
-          <div className="dashboard-metrics">
+
+          <div
+            className="dashboard-metrics"
+          >
 
             <MetricCard
               title="Total Issues"
@@ -315,10 +694,236 @@ function Dashboard() {
 
           </div>
 
-          <div className="risk-cards-wrapper">
+
+          {/* =========================================
+              SLA PREDICTION
+          ========================================= */}
+
+          <div
+            className="sla-prediction-panel"
+          >
+
+            <div
+              className="sla-prediction-header"
+            >
+
+              <div>
+
+                <span
+                  className="section-kicker"
+                >
+                  PREDICTIVE INTELLIGENCE
+                </span>
+
+                <h2>
+                  SLA Prediction
+                </h2>
+
+                <p>
+                  TensorFlow-based prediction
+                  of potential SLA breach.
+                </p>
+
+              </div>
+
+
+              <div
+                className="sla-model-badge"
+              >
+                TensorFlow Model
+              </div>
+
+            </div>
+
+
+            {/* =====================================
+                SLA CORE METRICS
+            ===================================== */}
+
+            <div
+              className="sla-prediction-grid"
+            >
+
+              <div
+                className="sla-stat-card"
+              >
+
+                <span>
+                  SLA BREACH PROBABILITY
+                </span>
+
+                <strong>
+                  {slaProbability}%
+                </strong>
+
+                <small>
+                  Predicted probability
+                </small>
+
+              </div>
+
+
+              <div
+                className={
+                  slaRisk === "High"
+                    ? "sla-stat-card sla-risk-high"
+                    : slaRisk === "Medium"
+                      ? "sla-stat-card sla-risk-medium"
+                      : "sla-stat-card sla-risk-low"
+                }
+              >
+
+                <span>
+                  RISK LEVEL
+                </span>
+
+                <strong>
+                  {slaRisk}
+                </strong>
+
+                <small>
+                  Model classification
+                </small>
+
+              </div>
+
+
+              <div
+                className="sla-stat-card"
+              >
+
+                <span>
+                  MODEL STATUS
+                </span>
+
+                <strong>
+                  {
+                    riskData.sla_prediction
+                      ? "Active"
+                      : "Unavailable"
+                  }
+                </strong>
+
+                <small>
+                  Prediction service
+                </small>
+
+              </div>
+
+            </div>
+
+
+            {/* =====================================
+                SLA EXPLANATION
+            ===================================== */}
+
+            <div
+              className="sla-explanation-card"
+            >
+
+              <span className="sla-detail-label">
+                MODEL EXPLANATION
+              </span>
+
+              <p>
+                {slaExplanation}
+              </p>
+
+            </div>
+
+
+            {/* =====================================
+                SLA FACTORS + RECOMMENDATION
+            ===================================== */}
+
+            <div
+              className="sla-details"
+            >
+
+              {/* CONTRIBUTING FACTORS */}
+
+              <div
+                className="sla-factors"
+              >
+
+                <span className="sla-detail-label">
+                  CONTRIBUTING FACTORS
+                </span>
+
+                {
+                  slaFactors.length > 0
+
+                    ? (
+
+                      <ul>
+
+                        {
+                          slaFactors.map(
+                            (
+                              factor,
+                              index
+                            ) => (
+
+                              <li
+                                key={index}
+                              >
+                                {factor}
+                              </li>
+
+                            )
+                          )
+                        }
+
+                      </ul>
+
+                    )
+
+                    : (
+
+                      <p>
+                        No contributing factors
+                        are currently available.
+                      </p>
+
+                    )
+                }
+
+              </div>
+
+
+              {/* RECOMMENDATION */}
+
+              <div
+                className="sla-recommendation"
+              >
+
+                <span className="sla-detail-label">
+                  RECOMMENDATION
+                </span>
+
+                <p>
+                  {slaRecommendation}
+                </p>
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          {/* =========================================
+              EXISTING RISK CARDS
+          ========================================= */}
+
+          <div
+            className="risk-cards-wrapper"
+          >
 
             <RiskCards
-              riskData={riskData}
+              riskData={
+                riskData
+              }
             />
 
           </div>
@@ -326,20 +931,24 @@ function Dashboard() {
         </section>
 
 
-        {/* =========================
+        {/* =========================================
             ANALYTICS
-        ========================= */}
+        ========================================= */}
 
         <section
           className="dashboard-section"
           id="analytics"
         >
 
-          <div className="section-label-row">
+          <div
+            className="section-label-row"
+          >
 
             <div>
 
-              <span className="section-kicker">
+              <span
+                className="section-kicker"
+              >
                 ANALYTICS
               </span>
 
@@ -351,11 +960,18 @@ function Dashboard() {
 
           </div>
 
-          <div className="dashboard-analytics-grid">
 
-            <div className="dashboard-panel">
+          <div
+            className="dashboard-analytics-grid"
+          >
 
-              <div className="panel-header">
+            <div
+              className="dashboard-panel"
+            >
+
+              <div
+                className="panel-header"
+              >
 
                 <div>
 
@@ -371,7 +987,10 @@ function Dashboard() {
 
               </div>
 
-              <div className="chart-container">
+
+              <div
+                className="chart-container"
+              >
 
                 <IssuesChart
                   insights={
@@ -384,9 +1003,13 @@ function Dashboard() {
             </div>
 
 
-            <div className="dashboard-panel">
+            <div
+              className="dashboard-panel"
+            >
 
-              <div className="panel-header">
+              <div
+                className="panel-header"
+              >
 
                 <div>
 
@@ -402,10 +1025,15 @@ function Dashboard() {
 
               </div>
 
-              <div className="chart-container">
+
+              <div
+                className="chart-container"
+              >
 
                 <RiskPieChart
-                  riskData={riskData}
+                  riskData={
+                    riskData
+                  }
                 />
 
               </div>
@@ -415,11 +1043,17 @@ function Dashboard() {
           </div>
 
 
-          <div className="dashboard-analytics-grid second-grid">
+          <div
+            className="dashboard-analytics-grid second-grid"
+          >
 
-            <div className="dashboard-panel">
+            <div
+              className="dashboard-panel"
+            >
 
-              <div className="panel-header">
+              <div
+                className="panel-header"
+              >
 
                 <div>
 
@@ -435,7 +1069,10 @@ function Dashboard() {
 
               </div>
 
-              <div className="chart-container">
+
+              <div
+                className="chart-container"
+              >
 
                 <SeverityPieChart
                   insights={
@@ -448,9 +1085,13 @@ function Dashboard() {
             </div>
 
 
-            <div className="dashboard-panel bottleneck-panel">
+            <div
+              className="dashboard-panel bottleneck-panel"
+            >
 
-              <div className="panel-header">
+              <div
+                className="panel-header"
+              >
 
                 <div>
 
@@ -466,20 +1107,27 @@ function Dashboard() {
 
               </div>
 
-              <div className="bottleneck-wrapper">
+
+              <div
+                className="bottleneck-wrapper"
+              >
 
                 <BottleneckCard
+
                   title="Top Bottleneck"
+
                   value={
                     firstInsight
                       ? firstInsight.issue
                       : "None detected"
                   }
+
                   severity={
                     firstInsight
                       ? firstInsight.severity
                       : "Low"
                   }
+
                 />
 
               </div>
@@ -491,20 +1139,24 @@ function Dashboard() {
         </section>
 
 
-        {/* =========================
+        {/* =========================================
             RISK ANALYSIS
-        ========================= */}
+        ========================================= */}
 
         <section
           className="dashboard-section"
           id="risk-analysis"
         >
 
-          <div className="section-label-row">
+          <div
+            className="section-label-row"
+          >
 
             <div>
 
-              <span className="section-kicker">
+              <span
+                className="section-kicker"
+              >
                 OPERATIONAL RISK
               </span>
 
@@ -512,7 +1164,9 @@ function Dashboard() {
                 Ticket Risk Analysis
               </h2>
 
-              <p className="section-description">
+              <p
+                className="section-description"
+              >
                 Prioritized workflow tickets
                 based on calculated
                 operational risk.
@@ -520,7 +1174,10 @@ function Dashboard() {
 
             </div>
 
-            <div className="ticket-count">
+
+            <div
+              className="ticket-count"
+            >
 
               <strong>
                 {
@@ -538,10 +1195,15 @@ function Dashboard() {
 
           </div>
 
-          <div className="table-panel">
+
+          <div
+            className="table-panel"
+          >
 
             <RiskTable
-              riskData={riskData}
+              riskData={
+                riskData
+              }
             />
 
           </div>
@@ -549,20 +1211,24 @@ function Dashboard() {
         </section>
 
 
-        {/* =========================
+        {/* =========================================
             AI INSIGHTS
-        ========================= */}
+        ========================================= */}
 
         <section
           className="dashboard-section"
           id="ai-insights"
         >
 
-          <div className="section-label-row">
+          <div
+            className="section-label-row"
+          >
 
             <div>
 
-              <span className="section-kicker">
+              <span
+                className="section-kicker"
+              >
                 AI INTELLIGENCE
               </span>
 
@@ -570,7 +1236,9 @@ function Dashboard() {
                 Workflow Insights
               </h2>
 
-              <p className="section-description">
+              <p
+                className="section-description"
+              >
                 Detected operational issues
                 with impact analysis and
                 actionable recommendations.
@@ -578,7 +1246,10 @@ function Dashboard() {
 
             </div>
 
-            <span className="insight-counter">
+
+            <span
+              className="insight-counter"
+            >
 
               {data.insights.length}
 
@@ -596,11 +1267,15 @@ function Dashboard() {
           </div>
 
 
-          <div className="insights-grid">
+          <div
+            className="insights-grid"
+          >
 
             {
               data.insights.length > 0
+
                 ? (
+
                   data.insights.map(
                     (
                       insight,
@@ -608,29 +1283,43 @@ function Dashboard() {
                     ) => (
 
                       <InsightCard
-                        key={index}
+
+                        key={
+                          index
+                        }
+
                         issue={
                           insight.issue
                         }
+
                         severity={
                           insight.severity
                         }
+
                         impact={
                           insight.impact
                         }
+
                         recommendation={
                           insight.recommendation
                         }
+
                         evidence={
                           insight.evidence
                         }
+
                       />
 
                     )
                   )
+
                 )
+
                 : (
-                  <div className="empty-insights">
+
+                  <div
+                    className="empty-insights"
+                  >
 
                     <span>
                       ✓
@@ -646,13 +1335,16 @@ function Dashboard() {
                     </p>
 
                   </div>
+
                 )
             }
 
           </div>
 
 
-          <div className="table-panel insights-table-panel">
+          <div
+            className="table-panel insights-table-panel"
+          >
 
             <InsightsTable
               insights={
@@ -665,20 +1357,230 @@ function Dashboard() {
         </section>
 
 
-        {/* =========================
+        {/* =========================================
+            EXECUTION MONITORING
+        ========================================= */}
+
+        <section
+          className="dashboard-section"
+          id="execution-history"
+        >
+
+          <div
+            className="section-label-row"
+          >
+
+            <div>
+
+              <span
+                className="section-kicker"
+              >
+                EXECUTION MONITORING
+              </span>
+
+              <h2>
+                Workflow Execution History
+              </h2>
+
+              <p
+                className="section-description"
+              >
+                Historical records of
+                CognitiveOps workflow
+                analysis executions.
+              </p>
+
+            </div>
+
+          </div>
+
+
+          <div
+            className="dashboard-metrics"
+          >
+
+            <MetricCard
+              title="Total Executions"
+              value={
+                executionStats.total_executions
+              }
+            />
+
+            <MetricCard
+              title="Average Execution Time"
+              value={
+                `${executionStats.average_execution_time}s`
+              }
+            />
+
+            <MetricCard
+              title="Poor Executions"
+              value={
+                executionStats.poor_executions
+              }
+            />
+
+            <MetricCard
+              title="High Severity Issues"
+              value={
+                executionStats.total_high_severity_issues
+              }
+            />
+
+          </div>
+
+
+          <div
+            className="table-panel"
+          >
+
+            <table>
+
+              <thead>
+
+                <tr>
+
+                  <th>ID</th>
+
+                  <th>Health</th>
+
+                  <th>Action</th>
+
+                  <th>Approval</th>
+
+                  <th>Execution</th>
+
+                  <th>Execution Time</th>
+
+                  <th>Started At</th>
+
+                </tr>
+
+              </thead>
+
+
+              <tbody>
+
+                {
+                  executionData.length > 0
+
+                    ? (
+
+                      executionData.map(
+                        (
+                          execution
+                        ) => (
+
+                          <tr
+                            key={
+                              execution.id
+                            }
+                          >
+
+                            <td>
+                              #
+                              {
+                                execution.id
+                              }
+                            </td>
+
+                            <td>
+                              {
+                                execution.workflow_health
+                              }
+                            </td>
+
+                            <td>
+
+                              {
+                                execution.proposed_action
+
+                                  ? `${execution.proposed_action.target || "Unknown"} → ${execution.proposed_action.new_value || "N/A"}`
+
+                                  : "No action"
+                              }
+
+                            </td>
+
+                            <td>
+                              {
+                                execution.approval_status ||
+                                "N/A"
+                              }
+                            </td>
+
+                            <td>
+                              {
+                                execution.execution_status ||
+                                "N/A"
+                              }
+                            </td>
+
+                            <td>
+                              {
+                                execution.execution_time
+                              }s
+                            </td>
+
+                            <td>
+
+                              {
+                                new Date(
+                                  execution.started_at
+                                ).toLocaleString()
+                              }
+
+                            </td>
+
+                          </tr>
+
+                        )
+                      )
+
+                    )
+
+                    : (
+
+                      <tr>
+
+                        <td
+                          colSpan="7"
+                        >
+                          No execution history found.
+                        </td>
+
+                      </tr>
+
+                    )
+                }
+
+              </tbody>
+
+            </table>
+
+          </div>
+
+        </section>
+
+
+        {/* =========================================
             WORKFLOW PIPELINE
-        ========================= */}
+        ========================================= */}
 
         <section
           className="dashboard-section"
           id="pipeline"
         >
 
-          <div className="section-label-row">
+          <div
+            className="section-label-row"
+          >
 
             <div>
 
-              <span className="section-kicker">
+              <span
+                className="section-kicker"
+              >
                 ANALYSIS PIPELINE
               </span>
 
@@ -690,7 +1592,10 @@ function Dashboard() {
 
           </div>
 
-          <div className="timeline-panel">
+
+          <div
+            className="timeline-panel"
+          >
 
             <WorkflowTimeline />
 
@@ -701,11 +1606,13 @@ function Dashboard() {
       </main>
 
 
-      {/* =========================
+      {/* =========================================
           FOOTER
-      ========================= */}
+      ========================================= */}
 
-      <footer className="dashboard-footer">
+      <footer
+        className="dashboard-footer"
+      >
 
         <div>
 
@@ -719,6 +1626,7 @@ function Dashboard() {
 
         </div>
 
+
         <span>
           Operational Intelligence Dashboard
         </span>
@@ -726,7 +1634,10 @@ function Dashboard() {
       </footer>
 
     </div>
+
   );
+
 }
+
 
 export default Dashboard;

@@ -2,60 +2,160 @@
   background:
     rgba(30, 41, 59, 0.7);
 
-  backdrop-filter: blur(12px);
+  backdrop-filter:
+    blur(12px);
 
-  border: 1px solid #334155;
+  border:
+    1px solid #334155;
 
-  border-radius: 18px;
+  border-radius:
+    18px;
 
-  padding: 24px;
+  padding:
+    24px;
 
-  text-align: center;
+  text-align:
+    center;
 
-  transition: 0.3s ease;
+  transition:
+    0.3s ease;
+
+  min-height:
+    120px;
+
+  display:
+    flex;
+
+  flex-direction:
+    column;
+
+  justify-content:
+    center;
+
+  box-sizing:
+    border-box;
 }
 
+
 .metric-card:hover {
-  transform: translateY(-6px);
+  transform:
+    translateY(-6px);
 
   box-shadow:
     0 10px 30px
-    rgba(59,130,246,0.2);
+    rgba(59, 130, 246, 0.2);
 }
+
+
+/* =========================
+   CARD TITLE
+========================= */
 
 .metric-card h2 {
-  font-size: 1.2rem;
-  margin-bottom: 12px;
+  font-size:
+    1.1rem;
+
+  color:
+    #cbd5e1;
+
+  margin:
+    0 0 12px 0;
 }
 
+
+/* =========================
+   CARD VALUE
+========================= */
+
 .metric-card p {
-  font-size: 2rem;
-  font-weight: bold;
+  font-size:
+    2rem;
+
+  font-weight:
+    bold;
+
+  margin:
+    0;
+
+  color:
+    #f8fafc;
 }
+
+
+/* =========================
+   WORKFLOW HEALTH
+========================= */
 
 .health-poor {
-  border: 2px solid #ef4444;
+  border:
+    2px solid #ef4444;
 }
+
 
 .health-good {
-  border: 2px solid #22c55e;
+  border:
+    2px solid #22c55e;
 }
 
-.metric-card h2 {
-  font-size: 1.1rem;
-  color: #cbd5e1;
+
+/* =========================
+   SLA MEDIUM RISK
+========================= */
+
+.risk-medium {
+  border:
+    2px solid #f59e0b;
 }
 
-.metric-card p {
-  font-size: 2rem;
-  font-weight: bold;
-  margin-top: 12px;
-}
+
+/* =========================
+   TABLE
+========================= */
+
 .table-container {
-  transition: 0.3s ease;
+  transition:
+    0.3s ease;
 }
+
 
 .table-container:hover {
-  transform: translateY(-4px);
+  transform:
+    translateY(-4px);
 }
 
+
+/* =========================
+   RESPONSIVE
+========================= */
+
+@media (max-width: 900px) {
+
+  .metric-card {
+    padding:
+      20px;
+  }
+
+  .metric-card h2 {
+    font-size:
+      1rem;
+  }
+
+  .metric-card p {
+    font-size:
+      1.7rem;
+  }
+}
+
+
+@media (max-width: 600px) {
+
+  .metric-card {
+    width:
+      100%;
+  }
+
+  .metric-card p {
+    font-size:
+      1.6rem;
+  }
+}

@@ -4,6 +4,8 @@ from contextvars import ContextVar
 
 from typing import Optional
 
+from functools import wraps
+
 
 # =========================================================
 # Logger
@@ -42,6 +44,54 @@ def set_execution_id(
     _execution_id.set(
         execution_id
     )
+
+
+
+from functools import wraps
+
+
+# =========================================================
+# Agent Trace Decorator
+# =========================================================
+
+def trace_agent(agent_name: str):
+
+    def decorator(func):
+
+        @wraps(func)
+        def wrapper(state):
+
+            set_agent_name(agent_name)
+
+            trace_log(
+                event="agent_started",
+                message=f"Agent {agent_name} started"
+            )
+
+            try:
+
+                result = func(state)
+
+                trace_log(
+                    event="agent_completed",
+                    message=f"Agent {agent_name} completed"
+                )
+
+                return result
+
+            except Exception as exc:
+
+                trace_log(
+                    event="agent_failed",
+                    message=str(exc),
+                    level=logging.ERROR
+                )
+
+                raise
+
+        return wrapper
+
+    return decorator
 
 
 def get_execution_id() -> Optional[int]:

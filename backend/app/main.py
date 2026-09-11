@@ -14,6 +14,20 @@ from app.services.scheduler_service import (
     scheduler
 )
 
+from app.api.workflow import (
+    router as workflow_router
+)
+
+from app.api.execution import (
+    router as execution_router
+)
+from app.api.risk import (
+    router as risk_router
+)
+from app.api.chat import (
+    router as chat_router
+)
+
 
 # =========================================================
 # LOGGING CONFIGURATION
@@ -42,11 +56,14 @@ logger = logging.getLogger(
 # =========================================================
 
 app = FastAPI(
+
     title="CognitiveOps",
+
     description=(
         "AI Process Intelligence "
         "and Agentic Workflow Automation"
     ),
+
     version="1.0.0"
 )
 
@@ -56,6 +73,7 @@ app = FastAPI(
 # =========================================================
 
 app.add_middleware(
+
     CORSMiddleware,
 
     allow_origins=[
@@ -78,9 +96,28 @@ app.add_middleware(
 # ROUTERS
 # =========================================================
 
-# Keep your existing router imports and
-# include_router() calls here exactly as
-# they currently exist in your project.
+app.include_router(
+
+    workflow_router,
+
+    prefix="/api"
+)
+
+
+app.include_router(
+
+    execution_router,
+
+    prefix="/api"
+)
+app.include_router(
+    risk_router,
+    prefix="/api"
+)
+app.include_router(
+    chat_router,
+    prefix="/api"
+)
 
 
 # =========================================================
@@ -91,8 +128,10 @@ app.add_middleware(
 def root():
 
     return {
+
         "message":
             "CognitiveOps API is running."
+
     }
 
 

@@ -23,6 +23,18 @@ from app.services.trace_service import (
 )
 
 
+from app.services.jira_service import (
+    JiraService
+)
+
+from app.services.root_cause_graph_service import (
+    RootCauseGraphService
+)
+
+from app.services.executive_intelligence_service import (
+    ExecutiveIntelligenceService
+)
+
 logger = logging.getLogger(__name__)
 
 
@@ -158,6 +170,56 @@ class WorkflowGraphService:
             )
 
             # =================================================
+            # ROOT CAUSE GRAPH
+            # =================================================
+            #
+            # Build the dependency / ownership graph from
+            # current Jira issues.
+            #
+            # This graph is passed into LangGraph state so
+            # downstream reasoning agents can use it.
+            # =================================================
+
+            jira_service = JiraService()
+
+            raw_issues = (
+                jira_service.get_tickets()
+            )
+
+            root_cause_graph_service = (
+                RootCauseGraphService()
+            )
+
+            root_cause_graph = (
+                root_cause_graph_service.build_graph(
+                    raw_issues
+                )
+            )
+
+            logger.info(
+                "ROOT CAUSE GRAPH | "
+                "nodes=%s | edges=%s",
+                root_cause_graph.get(
+                    "node_count",
+                    0
+                ),
+                root_cause_graph.get(
+                    "edge_count",
+                    0
+                )
+            )
+
+            trace_log(
+                "ROOT_CAUSE_GRAPH_BUILT",
+                (
+                    f"nodes="
+                    f"{root_cause_graph.get('node_count', 0)} "
+                    f"edges="
+                    f"{root_cause_graph.get('edge_count', 0)}"
+                )
+            )
+
+            # =================================================
             # INITIAL LANGGRAPH STATE
             # =================================================
 
@@ -279,6 +341,13 @@ class WorkflowGraphService:
                     {},
 
                 # ---------------------------------------------
+                # Root Cause Graph
+                # ---------------------------------------------
+
+                "root_cause_graph":
+                    root_cause_graph,
+
+                # ---------------------------------------------
                 # Observation
                 # ---------------------------------------------
 
@@ -360,6 +429,24 @@ class WorkflowGraphService:
                 "WORKFLOW EXECUTION TIME | %.2fs",
                 execution_time
             )
+
+            # =================================================
+            # PHASE 5.3 EXECUTIVE INTELLIGENCE
+            # =================================================
+
+            executive_service = ExecutiveIntelligenceService()
+
+            executive_summary = executive_service.generate_summary(
+                workflows=workflows,
+                insights=result.get("insights", []),
+                workflow_health=result.get("workflow_health"),
+                root_cause_graph=result.get("root_cause_graph") or root_cause_graph,
+                sla_prediction=result.get("sla_prediction"),
+                proposed_action=result.get("proposed_action"),
+            )
+
+            result = dict(result)
+            result["executive_summary"] = executive_summary
 
             # =================================================
             # HITL STATE
@@ -529,6 +616,12 @@ class WorkflowGraphService:
                 "approved_action_result":
                     result.get(
                         "approved_action_result"
+                    ),
+
+                "executive_summary":
+                    result.get(
+                        "executive_summary",
+                        {}
                     )
             }
 

@@ -22,15 +22,16 @@ class ContextService:
         5. Optional user request
         6. Existing analysis
         7. Optional workflow state
-        8. Long-term memory
-        9. Retrieved RAG knowledge
+        8. Root cause graph
+        9. Long-term memory
+        10. Retrieved RAG knowledge
         """
 
         context_parts = []
 
-        # --------------------------------
-        # 1. Current Operational Context
-        # --------------------------------
+        # =================================================
+        # CURRENT OPERATIONAL INSIGHT
+        # =================================================
 
         context_parts.append(
             f"ISSUE:\n{insight.issue}"
@@ -40,9 +41,9 @@ class ContextService:
             f"SEVERITY:\n{insight.severity}"
         )
 
-        # --------------------------------
-        # 2. Existing Insight Evidence
-        # --------------------------------
+        # =================================================
+        # INSIGHT EVIDENCE
+        # =================================================
 
         relevant_evidence = [
             item
@@ -59,29 +60,31 @@ class ContextService:
             f"EVIDENCE:\n{evidence_text}"
         )
 
-        # --------------------------------
-        # 3. Jira + Slack Evidence
-        # --------------------------------
+        # =================================================
+        # JIRA + SLACK EVIDENCE
+        # =================================================
 
         if agent_state:
 
-            jira_evidence = (
+            jira_evidence = agent_state.get(
+                "jira",
                 agent_state.get(
-                    "jira",
+                    "jira_evidence",
                     []
                 )
             )
 
-            slack_evidence = (
+            slack_evidence = agent_state.get(
+                "slack",
                 agent_state.get(
-                    "slack",
+                    "slack_evidence",
                     []
                 )
             )
 
-            # ----------------------------
-            # Jira
-            # ----------------------------
+            # -------------------------------------------------
+            # JIRA
+            # -------------------------------------------------
 
             if jira_evidence:
 
@@ -102,9 +105,9 @@ class ContextService:
                     "No Jira evidence found."
                 )
 
-            # ----------------------------
-            # Slack
-            # ----------------------------
+            # -------------------------------------------------
+            # SLACK
+            # -------------------------------------------------
 
             if slack_evidence:
 
@@ -166,20 +169,19 @@ class ContextService:
                     "No Slack evidence found."
                 )
 
-        # --------------------------------
-        # 4. Optional User Request
-        # --------------------------------
+        # =================================================
+        # USER REQUEST
+        # =================================================
 
         if user_request:
 
             context_parts.append(
-                f"USER REQUEST:\n"
-                f"{user_request}"
+                f"USER REQUEST:\n{user_request}"
             )
 
-        # --------------------------------
-        # 5. Existing Analysis
-        # --------------------------------
+        # =================================================
+        # EXISTING ANALYSIS
+        # =================================================
 
         if insight.root_cause:
 
@@ -202,9 +204,9 @@ class ContextService:
                 f"{insight.recommendation}"
             )
 
-        # --------------------------------
-        # 6. Optional Agent State
-        # --------------------------------
+        # =================================================
+        # AGENT STATE
+        # =================================================
 
         if agent_state:
 
@@ -236,9 +238,145 @@ class ContextService:
                     f"{state_text}"
                 )
 
-        # --------------------------------
-        # 7. Long-Term Memory
-        # --------------------------------
+        # =================================================
+        # ROOT CAUSE GRAPH
+        # =================================================
+        #
+        # This is the main Phase 5.2 addition.
+        #
+        # The graph contains:
+        # - workflow nodes
+        # - owner nodes
+        # - service nodes
+        # - dependency relationships
+        #
+        # The LLM can now use these relationships when
+        # explaining the root cause.
+        # =================================================
+
+        if agent_state:
+
+            root_cause_graph = (
+                agent_state.get(
+                    "root_cause_graph",
+                    {}
+                )
+            )
+
+            if root_cause_graph:
+
+                nodes = (
+                    root_cause_graph.get(
+                        "nodes",
+                        []
+                    )
+                )
+
+                edges = (
+                    root_cause_graph.get(
+                        "edges",
+                        []
+                    )
+                )
+
+                node_lines = []
+
+                for node in nodes:
+
+                    node_id = node.get(
+                        "id",
+                        "Unknown"
+                    )
+
+                    node_type = node.get(
+                        "type",
+                        "Unknown"
+                    )
+
+                    label = node.get(
+                        "label",
+                        node_id
+                    )
+
+                    node_lines.append(
+                        f"- {node_id} "
+                        f"| type={node_type} "
+                        f"| label={label}"
+                    )
+
+                edge_lines = []
+
+                for edge in edges:
+
+                    source = edge.get(
+                        "source",
+                        "Unknown"
+                    )
+
+                    target = edge.get(
+                        "target",
+                        "Unknown"
+                    )
+
+                    relationship = edge.get(
+                        "relationship",
+                        "related_to"
+                    )
+
+                    edge_lines.append(
+                        f"- {source} "
+                        f"--{relationship}--> "
+                        f"{target}"
+                    )
+
+                graph_text = (
+                    "ROOT CAUSE GRAPH:\n"
+                    "\n"
+                    "NODES:\n"
+                    +
+                    (
+                        "\n".join(
+                            node_lines
+                        )
+                        if node_lines
+                        else
+                        "- No graph nodes found."
+                    )
+                    +
+                    "\n\n"
+                    "RELATIONSHIPS:\n"
+                    +
+                    (
+                        "\n".join(
+                            edge_lines
+                        )
+                        if edge_lines
+                        else
+                        "- No graph relationships found."
+                    )
+                )
+
+                context_parts.append(
+                    graph_text
+                )
+
+            else:
+
+                context_parts.append(
+                    "ROOT CAUSE GRAPH:\n"
+                    "No root cause graph available."
+                )
+
+        else:
+
+            context_parts.append(
+                "ROOT CAUSE GRAPH:\n"
+                "No root cause graph available."
+            )
+
+        # =================================================
+        # LONG-TERM MEMORY
+        # =================================================
 
         if agent_state:
 
@@ -253,7 +391,9 @@ class ContextService:
 
                 memory_lines = []
 
-                for memory in long_term_memory:
+                for memory in (
+                    long_term_memory
+                ):
 
                     if isinstance(
                         memory,
@@ -293,9 +433,9 @@ class ContextService:
                 "No previous workflow memory found."
             )
 
-        # --------------------------------
-        # 8. Retrieved RAG Knowledge
-        # --------------------------------
+        # =================================================
+        # RETRIEVED RAG KNOWLEDGE
+        # =================================================
 
         if retrieved_context:
 
@@ -311,28 +451,36 @@ class ContextService:
                 "No relevant knowledge was found."
             )
 
-        # --------------------------------
-        # 9. Final Context
-        # --------------------------------
+        # =================================================
+        # FINAL CONTEXT
+        # =================================================
 
         final_context = "\n\n".join(
             context_parts
         )
 
-        # --------------------------------
-        # Context Size Protection
-        # --------------------------------
+        # =================================================
+        # CONTEXT LIMIT
+        # =================================================
 
-        if len(final_context) > LLM_MAX_CONTEXT_LENGTH:
+        if (
+            len(final_context)
+            >
+            LLM_MAX_CONTEXT_LENGTH
+        ):
 
             final_context = (
-                final_context[:LLM_MAX_CONTEXT_LENGTH]
-                + "\n\n[CONTEXT TRUNCATED DUE TO SIZE LIMIT]"
+                final_context[
+                    :LLM_MAX_CONTEXT_LENGTH
+                ]
+                +
+                "\n\n"
+                "[CONTEXT TRUNCATED DUE TO SIZE LIMIT]"
             )
 
-        # --------------------------------
-        # Debug
-        # --------------------------------
+        # =================================================
+        # DEBUG LOG
+        # =================================================
 
         print(
             "\n=================================="

@@ -9,6 +9,8 @@ from app.services.gemini_insight_service import (
 )
 
 
+
+
 class WorkflowAnalyzer:
 
     DELAY_THRESHOLD = 3

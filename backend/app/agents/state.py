@@ -80,7 +80,16 @@ class AgentState(TypedDict, total=False):
 
     approval_reason: str | None
 
+    sla_prediction: dict[str, Any]
+
+    root_cause_graph: dict[str, Any]
+
     # --------------------------------------------------
     # Phase 2.13 tracing / reasoning control
     # --------------------------------------------------
     reasoning_completed: bool
+
+    # --------------------------------------------------
+    # Phase 5.3 Executive Intelligence (#72)
+    # --------------------------------------------------
+    executive_summary: dict[str, Any]

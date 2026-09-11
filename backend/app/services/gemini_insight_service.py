@@ -120,10 +120,6 @@ class GeminiInsightService:
         combined_evidence: dict | None = None
     ) -> dict:
 
-        # --------------------------------------------------
-        # Observability: operation identification
-        # --------------------------------------------------
-
         set_operation_name(
             "evidence_evaluation"
         )
@@ -147,6 +143,38 @@ class GeminiInsightService:
         slack_evidence = (
             combined_evidence.get(
                 "slack",
+                []
+            )
+        )
+
+        # ==================================================
+        # NEW: ROOT CAUSE GRAPH
+        # ==================================================
+
+        root_cause_graph = (
+            combined_evidence.get(
+                "root_cause_graph",
+                {}
+            )
+        )
+
+        if not isinstance(
+            root_cause_graph,
+            dict
+        ):
+
+            root_cause_graph = {}
+
+        graph_nodes = (
+            root_cause_graph.get(
+                "nodes",
+                []
+            )
+        )
+
+        graph_edges = (
+            root_cause_graph.get(
+                "edges",
                 []
             )
         )
@@ -175,6 +203,13 @@ JIRA EVIDENCE:
 SLACK EVIDENCE:
 {json.dumps(slack_evidence, default=str)}
 
+ROOT CAUSE GRAPH:
+NODES:
+{json.dumps(graph_nodes, default=str)}
+
+RELATIONSHIPS:
+{json.dumps(graph_edges, default=str)}
+
 Evaluate the evidence using these criteria:
 
 1. RELEVANCE
@@ -192,6 +227,19 @@ made by the insight?
 4. COMPLETENESS
 Is there enough information to confidently
 understand and support the issue?
+
+For graph evidence specifically:
+
+- Treat graph relationships as factual only when
+  they are explicitly present in the graph.
+- Do not assume that two tickets are dependent
+  merely because they belong to the same project,
+  service, or owner.
+- Do not invent blocks, blocked_by, depends_on,
+  or dependency relationships.
+- If the graph contains no direct dependency
+  relationship, consider that relationship
+  unsupported.
 
 Score each criterion from 0.0 to 1.0.
 
@@ -233,6 +281,9 @@ Return ONLY valid JSON:
                         "intelligence system. "
                         "Evaluate evidence objectively. "
                         "Do not invent facts. "
+                        "Treat graph relationships as "
+                        "factual only when explicitly "
+                        "provided. "
                         "Return only valid JSON."
                     ),
                     evaluator_prompt,
@@ -264,17 +315,6 @@ Return ONLY valid JSON:
                 evaluation["support"],
                 evaluation["completeness"]
             )
-
-            if evaluation[
-                "missing_information"
-            ]:
-
-                logger.info(
-                    "MISSING EVIDENCE | %s",
-                    evaluation[
-                        "missing_information"
-                    ]
-                )
 
             trace_log(
                 "LLM_OPERATION_END",
@@ -521,10 +561,6 @@ Return ONLY valid JSON:
         long_term_memory: list[str] | None = None
     ) -> Insight:
 
-        # --------------------------------------------------
-        # Observability: operation identification
-        # --------------------------------------------------
-
         set_operation_name(
             "insight_generation"
         )
@@ -627,15 +663,6 @@ Return ONLY valid JSON:
             )
         }
 
-        logger.info(
-            "REASONING CONTEXT | "
-            "long_term_memory=%s",
-            len(
-                long_term_memory
-                or []
-            )
-        )
-
         context = (
             self.context_service
             .build_insight_context(
@@ -645,8 +672,42 @@ Return ONLY valid JSON:
             )
         )
 
-        return USER_PROMPT.format(
-            context=context
+        # ==================================================
+        # NEW: ROOT CAUSE GROUNDING RULES
+        # ==================================================
+
+        grounding_instructions = """
+
+ROOT CAUSE GROUNDING RULES:
+
+1. Determine the root cause only from the supplied
+   Jira, Slack, SLA, RAG, workflow-state, and root
+   cause graph evidence.
+
+2. If the root cause graph contains an explicit
+   relationship such as blocks or blocked_by, that
+   relationship may be used as supporting evidence.
+
+3. Do NOT infer a dependency simply because two
+   workflows share the same owner, project, or service.
+
+4. Do NOT invent blocks, blocked_by, depends_on,
+   dependency, escalation, or causal relationships.
+
+5. If the available evidence does not establish a
+   root cause, explicitly state that the root cause
+   cannot be determined from the available evidence.
+
+6. Recommendations must address only evidence-supported
+   conditions.
+"""
+
+        return (
+            grounding_instructions
+            + "\n\n"
+            + USER_PROMPT.format(
+                context=context
+            )
         )
 
     # ==================================================
@@ -762,11 +823,6 @@ Return ONLY valid JSON:
                 dict
             ):
 
-                logger.warning(
-                    "LLM JSON RESPONSE "
-                    "IS NOT AN OBJECT"
-                )
-
                 return {
                     "root_cause": (
                         "Unable to determine root cause "
@@ -810,11 +866,6 @@ Return ONLY valid JSON:
 
         if value is None:
 
-            logger.warning(
-                "LLM FIELD MISSING | field=%s",
-                field_name
-            )
-
             if field_name == "root_cause":
 
                 return (
@@ -837,23 +888,11 @@ Return ONLY valid JSON:
             str
         ):
 
-            logger.warning(
-                "LLM FIELD INVALID TYPE | "
-                "field=%s type=%s",
-                field_name,
-                type(value).__name__
-            )
-
             return str(value)
 
         value = value.strip()
 
         if not value:
-
-            logger.warning(
-                "LLM FIELD EMPTY | field=%s",
-                field_name
-            )
 
             if field_name == "root_cause":
 

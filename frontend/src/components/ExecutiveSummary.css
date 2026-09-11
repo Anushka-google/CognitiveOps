@@ -1,0 +1,267 @@
+.executive-summary-card {
+  background: rgba(30, 41, 59, 0.7);
+  backdrop-filter: blur(12px);
+  border: 1px solid #334155;
+  border-radius: 18px;
+  padding: 24px;
+  color: #f8fafc;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+  transition: all 0.3s ease;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.25);
+}
+
+.executive-summary-card:hover {
+  border-color: #475569;
+  box-shadow: 0 8px 28px rgba(59, 130, 246, 0.12);
+}
+
+/* Header */
+.executive-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 12px;
+  padding-bottom: 16px;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.6);
+}
+
+.executive-header-left {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.executive-title {
+  margin: 0;
+  font-size: 1.35rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.executive-timestamp {
+  font-size: 0.78rem;
+  color: #94a3b8;
+}
+
+.executive-badges {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
+
+.grounding-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(16, 185, 129, 0.15);
+  color: #34d399;
+  border: 1px solid rgba(16, 185, 129, 0.35);
+  font-size: 0.75rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  letter-spacing: 0.02em;
+}
+
+.health-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.75rem;
+  font-weight: 700;
+  padding: 4px 10px;
+  border-radius: 9999px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.health-badge.healthy {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+  border: 1px solid #10b981;
+}
+
+.health-badge.needs-attention {
+  background: rgba(245, 158, 11, 0.2);
+  color: #fbbf24;
+  border: 1px solid #f59e0b;
+}
+
+.health-badge.at-risk {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+  border: 1px solid #ef4444;
+}
+
+/* KPI Ribbon */
+.executive-kpi-ribbon {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+  gap: 12px;
+}
+
+.kpi-mini-pill {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid #334155;
+  border-radius: 12px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+
+.kpi-mini-label {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  font-weight: 600;
+}
+
+.kpi-mini-value {
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: #e2e8f0;
+}
+
+.kpi-mini-value.highlight-warning {
+  color: #fbbf24;
+}
+
+.kpi-mini-value.highlight-danger {
+  color: #f87171;
+}
+
+.kpi-mini-value.highlight-success {
+  color: #34d399;
+}
+
+/* Tri-Fold Intelligence Sections */
+.executive-tri-fold {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 16px;
+}
+
+.executive-column {
+  background: rgba(15, 23, 42, 0.45);
+  border: 1px solid rgba(51, 65, 85, 0.7);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.column-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 0.92rem;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+  padding-bottom: 8px;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+}
+
+.column-header.what {
+  color: #38bdf8;
+}
+
+.column-header.why {
+  color: #fbbf24;
+}
+
+.column-header.action {
+  color: #a78bfa;
+}
+
+.column-list {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.column-list li {
+  font-size: 0.86rem;
+  line-height: 1.5;
+  color: #cbd5e1;
+  position: relative;
+  padding-left: 16px;
+}
+
+.column-list li::before {
+  content: "•";
+  position: absolute;
+  left: 0;
+  color: #64748b;
+  font-weight: bold;
+}
+
+.column-list.what-list li::before {
+  color: #38bdf8;
+}
+
+.column-list.why-list li::before {
+  color: #fbbf24;
+}
+
+.column-list.action-list li::before {
+  color: #a78bfa;
+}
+
+/* Critical Blockers Box */
+.critical-blockers-callout {
+  background: rgba(239, 68, 68, 0.08);
+  border: 1px solid rgba(239, 68, 68, 0.25);
+  border-radius: 12px;
+  padding: 14px 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.blockers-label {
+  font-size: 0.75rem;
+  font-weight: 700;
+  color: #f87171;
+  text-transform: uppercase;
+  letter-spacing: 0.04em;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.blockers-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.blocker-chip {
+  background: rgba(30, 41, 59, 0.9);
+  border: 1px solid rgba(239, 68, 68, 0.35);
+  color: #fca5a5;
+  font-size: 0.8rem;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 8px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.blocker-rel {
+  color: #94a3b8;
+  font-size: 0.72rem;
+  font-weight: normal;
+}

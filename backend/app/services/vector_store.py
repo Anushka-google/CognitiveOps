@@ -3,7 +3,6 @@ import uuid
 
 
 def get_collection():
-
     client = chromadb.PersistentClient(
         path="./chroma_db"
     )
@@ -15,75 +14,66 @@ def get_collection():
     return collection
 
 
-def add_chunks(
-    chunks,
-    metadatas=None
-):
-
+def add_chunks(chunks, metadatas=None):
     collection = get_collection()
 
     for index, chunk in enumerate(chunks):
-
         metadata = None
 
         if metadatas:
-
             metadata = metadatas[index]
 
         collection.add(
-
-            documents=[
-                chunk
-            ],
-
-            ids=[
-                str(
-                    uuid.uuid4()
-                )
-            ],
-
-            metadatas=(
-                [metadata]
-                if metadata
-                else None
-            )
+            documents=[chunk],
+            ids=[str(uuid.uuid4())],
+            metadatas=[metadata] if metadata else None
         )
 
 
 def search_chunks(
     query: str,
-    n_results: int = 3
+    n_results: int = 3,
+    filters=None
 ):
-
     collection = get_collection()
 
+    query_params = {
+        "query_texts": [query],
+        "n_results": n_results
+    }
+
+    if filters:
+        query_params["where"] = filters
+
     results = collection.query(
-
-        query_texts=[
-            query
-        ],
-
-        n_results=n_results
+        **query_params
     )
 
     return results
 
 
 def get_context(
-    query: str
+    query: str,
+    filters=None
 ):
-
     collection = get_collection()
 
+    query_params = {
+        "query_texts": [query],
+        "n_results": 1
+    }
+
+    if filters:
+        query_params["where"] = filters
+
     results = collection.query(
-
-        query_texts=[
-            query
-        ],
-
-        n_results=1
+        **query_params
     )
 
-    return results[
-        "documents"
-    ][0][0]
+    if (
+        not results["documents"]
+        or not results["documents"][0]
+    ):
+        return None
+
+    return results["documents"][0][0]

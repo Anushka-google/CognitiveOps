@@ -1,5 +1,6 @@
 import os
 import requests
+import urllib3
 
 from requests.auth import HTTPBasicAuth
 
@@ -50,6 +51,36 @@ class JiraService:
             .strip()
         )
 
+        # =====================================================
+        # JIRA SSL VERIFICATION
+        # =====================================================
+
+        ssl_verify_setting = os.getenv(
+            "JIRA_SSL_VERIFY",
+            "true"
+        ).strip().lower()
+
+        self.ssl_verify = (
+            ssl_verify_setting
+            not in {
+                "false",
+                "0",
+                "no",
+                "off",
+            }
+        )
+
+        if not self.ssl_verify:
+
+            urllib3.disable_warnings(
+                urllib3.exceptions.InsecureRequestWarning
+            )
+
+            print(
+                "WARNING: Jira SSL verification is disabled "
+                "for local development."
+            )
+
         self.auth = HTTPBasicAuth(
             self.email,
             self.api_token
@@ -97,7 +128,8 @@ class JiraService:
             url,
             auth=self.auth,
             headers=self.headers,
-            timeout=30
+            timeout=30,
+            verify=self.ssl_verify
         )
 
         print(
@@ -162,7 +194,8 @@ class JiraService:
             url,
             auth=self.auth,
             headers=self.headers,
-            timeout=30
+            timeout=30,
+            verify=self.ssl_verify
         )
 
         print(
@@ -240,7 +273,8 @@ class JiraService:
             params=params,
             auth=self.auth,
             headers=self.headers,
-            timeout=30
+            timeout=30,
+            verify=self.ssl_verify
         )
 
         print(
@@ -315,7 +349,8 @@ class JiraService:
             params=params,
             auth=self.auth,
             headers=self.headers,
-            timeout=30
+            timeout=30,
+            verify=self.ssl_verify
         )
 
         print(
@@ -413,6 +448,9 @@ class JiraService:
                 "priority,"
                 "issuetype,"
                 "duedate"
+                "issuelinks,"
+                "components,"
+                "project"
             ),
 
             "maxResults": 100
@@ -423,7 +461,8 @@ class JiraService:
             params=params,
             auth=self.auth,
             headers=self.headers,
-            timeout=30
+            timeout=30,
+            verify=self.ssl_verify
         )
 
         print(
@@ -538,7 +577,8 @@ class JiraService:
             params=params,
             auth=self.auth,
             headers=self.headers,
-            timeout=30
+            timeout=30,
+            verify=self.ssl_verify
         )
 
         if response.status_code != 200:
@@ -869,7 +909,8 @@ class JiraService:
             json=payload,
             auth=self.auth,
             headers=self.headers,
-            timeout=30
+            timeout=30,
+            verify=self.ssl_verify
         )
 
         if response.status_code not in (

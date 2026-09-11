@@ -3,6 +3,13 @@ import {
   useState,
 } from "react";
 
+import WorkflowExplorer from "./pages/WorkflowExplorer";
+import {
+  useLocation,
+} from "react-router-dom";
+
+import Chat from "./pages/Chat";
+
 import {
   getWorkflowAnalysis
 } from "./services/workflowApi";
@@ -36,6 +43,9 @@ import "./pages/Dashboard.css";
 
 function Dashboard() {
 
+  const location = useLocation();
+
+
   const [
     data,
     setData
@@ -55,6 +65,7 @@ function Dashboard() {
     executionStats,
     setExecutionStats
   ] = useState(null);
+
 
   // =========================================
   // PENDING HUMAN APPROVAL
@@ -76,11 +87,19 @@ function Dashboard() {
   ] = useState(false);
 
 
+  // =========================================
+  // LOAD DASHBOARD DATA
+  // =========================================
+
   useEffect(() => {
 
     async function loadData() {
 
       try {
+
+        console.log(
+          "🔥 UPDATED DASHBOARD IS RUNNING"
+        );
 
         console.log(
           "API_URL:",
@@ -220,9 +239,33 @@ function Dashboard() {
   }, []);
 
 
-  // =========================
+  // =========================================
+  // PHASE 3.13 - CHAT
+  // =========================================
+
+  // IMPORTANT:
+  // This comes AFTER all React Hooks.
+  // Hooks must always run in the same order.
+
+  if (location.pathname === "/chat") {
+
+    return <Chat />;
+
+  }
+  // =========================================
+// PHASE 5.1 - WORKFLOW EXPLORER
+// =========================================
+
+if (location.pathname === "/workflow") {
+
+  return <WorkflowExplorer />;
+
+}
+
+
+  // =========================================
   // ERROR STATE
-  // =========================
+  // =========================================
 
   if (error) {
 
@@ -265,9 +308,9 @@ function Dashboard() {
   }
 
 
-  // =========================
+  // =========================================
   // LOADING STATE
-  // =========================
+  // =========================================
 
   if (
     !data ||
@@ -308,10 +351,40 @@ function Dashboard() {
   }
 
 
+  // =========================================
+  // FIRST INSIGHT
+  // =========================================
+
   const firstInsight =
     data.insights.length > 0
       ? data.insights[0]
       : null;
+
+
+  // =========================================
+  // SLA PREDICTION
+  // =========================================
+
+  const slaPrediction =
+    riskData.sla_prediction || {};
+
+
+  const slaProbability =
+    typeof slaPrediction.sla_breach_probability === "number"
+      ? (
+          slaPrediction.sla_breach_probability * 100
+        ).toFixed(1)
+      : "N/A";
+
+
+  const slaRisk =
+    slaPrediction.risk_level || "N/A";
+
+
+  console.log(
+    "SLA Prediction:",
+    slaPrediction
+  );
 
 
   return (
@@ -324,9 +397,9 @@ function Dashboard() {
       }
     >
 
-      {/* =========================
+      {/* =========================================
           SIDEBAR
-      ========================= */}
+      ========================================= */}
 
       <Sidebar
         collapsed={
@@ -339,17 +412,18 @@ function Dashboard() {
       />
 
 
-      {/* =========================
+      {/* =========================================
           MAIN CONTENT
-      ========================= */}
+      ========================================= */}
 
       <main
         className="dashboard-main"
       >
 
-        {/* =========================
+
+        {/* =========================================
             OVERVIEW
-        ========================= */}
+        ========================================= */}
 
         <section
           className="dashboard-header"
@@ -402,9 +476,9 @@ function Dashboard() {
         </section>
 
 
-        {/* =========================
+        {/* =========================================
             EXECUTIVE SUMMARY
-        ========================= */}
+        ========================================= */}
 
         <section
           className="dashboard-section"
@@ -442,6 +516,11 @@ function Dashboard() {
           >
 
             <ExecutiveSummary
+
+              summary={
+                data.executive_summary
+              }
+
               workflowHealth={
                 data.workflow_health
               }
@@ -459,6 +538,7 @@ function Dashboard() {
                   ? firstInsight.issue
                   : "No bottlenecks detected"
               }
+
             />
 
           </div>
@@ -564,9 +644,9 @@ function Dashboard() {
         }
 
 
-        {/* =========================
+        {/* =========================================
             KPI METRICS
-        ========================= */}
+        ========================================= */}
 
         <section
           className="dashboard-section"
@@ -604,12 +684,14 @@ function Dashboard() {
               }
             />
 
+
             <MetricCard
               title="High Severity"
               value={
                 data.high_severity_issues
               }
             />
+
 
             <MetricCard
               title="Workflow Health"
@@ -620,6 +702,139 @@ function Dashboard() {
 
           </div>
 
+
+          {/* =========================================
+              SLA PREDICTION
+          ========================================= */}
+
+          <div
+            className="sla-prediction-panel"
+          >
+
+            <div
+              className="sla-prediction-header"
+            >
+
+              <div>
+
+                <span
+                  className="section-kicker"
+                >
+                  PREDICTIVE INTELLIGENCE
+                </span>
+
+                <h2>
+                  SLA Prediction
+                </h2>
+
+                <p>
+                  TensorFlow-based prediction
+                  of potential SLA breach.
+                </p>
+
+              </div>
+
+
+              <div
+                className="sla-model-badge"
+              >
+                TensorFlow Model
+              </div>
+
+            </div>
+
+
+            <div
+              className="sla-prediction-grid"
+            >
+
+
+              {/* =====================================
+                  SLA BREACH PROBABILITY
+              ===================================== */}
+
+              <div
+                className="sla-stat-card"
+              >
+
+                <span>
+                  SLA BREACH PROBABILITY
+                </span>
+
+                <strong>
+                  {slaProbability}%
+                </strong>
+
+                <small>
+                  Predicted probability
+                </small>
+
+              </div>
+
+
+              {/* =====================================
+                  SLA RISK LEVEL
+              ===================================== */}
+
+              <div
+                className={
+                  slaRisk === "High"
+                    ? "sla-stat-card sla-risk-high"
+                    : slaRisk === "Medium"
+                      ? "sla-stat-card sla-risk-medium"
+                      : "sla-stat-card sla-risk-low"
+                }
+              >
+
+                <span>
+                  RISK LEVEL
+                </span>
+
+                <strong>
+                  {slaRisk}
+                </strong>
+
+                <small>
+                  Model classification
+                </small>
+
+              </div>
+
+
+              {/* =====================================
+                  MODEL STATUS
+              ===================================== */}
+
+              <div
+                className="sla-stat-card"
+              >
+
+                <span>
+                  MODEL STATUS
+                </span>
+
+                <strong>
+                  {
+                    riskData.sla_prediction
+                      ? "Active"
+                      : "Unavailable"
+                  }
+                </strong>
+
+                <small>
+                  Prediction service
+                </small>
+
+              </div>
+
+            </div>
+
+          </div>
+
+
+          {/* =========================================
+              EXISTING RISK CARDS
+          ========================================= */}
 
           <div
             className="risk-cards-wrapper"
@@ -636,9 +851,9 @@ function Dashboard() {
         </section>
 
 
-        {/* =========================
+        {/* =========================================
             ANALYTICS
-        ========================= */}
+        ========================================= */}
 
         <section
           className="dashboard-section"
@@ -669,6 +884,9 @@ function Dashboard() {
           <div
             className="dashboard-analytics-grid"
           >
+
+
+            {/* ISSUE ANALYSIS */}
 
             <div
               className="dashboard-panel"
@@ -707,6 +925,8 @@ function Dashboard() {
 
             </div>
 
+
+            {/* RISK ANALYSIS */}
 
             <div
               className="dashboard-panel"
@@ -748,9 +968,14 @@ function Dashboard() {
           </div>
 
 
+          {/* SECOND ANALYTICS ROW */}
+
           <div
             className="dashboard-analytics-grid second-grid"
           >
+
+
+            {/* SEVERITY */}
 
             <div
               className="dashboard-panel"
@@ -790,6 +1015,8 @@ function Dashboard() {
             </div>
 
 
+            {/* BOTTLENECK */}
+
             <div
               className="dashboard-panel bottleneck-panel"
             >
@@ -818,6 +1045,7 @@ function Dashboard() {
               >
 
                 <BottleneckCard
+
                   title="Top Bottleneck"
 
                   value={
@@ -831,6 +1059,7 @@ function Dashboard() {
                       ? firstInsight.severity
                       : "Low"
                   }
+
                 />
 
               </div>
@@ -842,9 +1071,9 @@ function Dashboard() {
         </section>
 
 
-        {/* =========================
+        {/* =========================================
             RISK ANALYSIS
-        ========================= */}
+        ========================================= */}
 
         <section
           className="dashboard-section"
@@ -914,9 +1143,9 @@ function Dashboard() {
         </section>
 
 
-        {/* =========================
+        {/* =========================================
             AI INSIGHTS
-        ========================= */}
+        ========================================= */}
 
         <section
           className="dashboard-section"
@@ -976,6 +1205,7 @@ function Dashboard() {
 
             {
               data.insights.length > 0
+
                 ? (
 
                   data.insights.map(
@@ -985,6 +1215,7 @@ function Dashboard() {
                     ) => (
 
                       <InsightCard
+
                         key={
                           index
                         }
@@ -1008,12 +1239,14 @@ function Dashboard() {
                         evidence={
                           insight.evidence
                         }
+
                       />
 
                     )
                   )
 
                 )
+
                 : (
 
                   <div
@@ -1056,9 +1289,9 @@ function Dashboard() {
         </section>
 
 
-        {/* =========================
+        {/* =========================================
             EXECUTION MONITORING
-        ========================= */}
+        ========================================= */}
 
         <section
           className="dashboard-section"
@@ -1094,9 +1327,9 @@ function Dashboard() {
           </div>
 
 
-          {/* =========================
+          {/* =========================================
               EXECUTION STATISTICS
-          ========================= */}
+          ========================================= */}
 
           <div
             className="dashboard-metrics"
@@ -1109,6 +1342,7 @@ function Dashboard() {
               }
             />
 
+
             <MetricCard
               title="Average Execution Time"
               value={
@@ -1116,12 +1350,14 @@ function Dashboard() {
               }
             />
 
+
             <MetricCard
               title="Poor Executions"
               value={
                 executionStats.poor_executions
               }
             />
+
 
             <MetricCard
               title="High Severity Issues"
@@ -1133,9 +1369,9 @@ function Dashboard() {
           </div>
 
 
-          {/* =========================
+          {/* =========================================
               EXECUTION TABLE
-          ========================= */}
+          ========================================= */}
 
           <div
             className="table-panel"
@@ -1184,6 +1420,7 @@ function Dashboard() {
 
                 {
                   executionData.length > 0
+
                     ? (
 
                       executionData.map(
@@ -1204,19 +1441,26 @@ function Dashboard() {
                               }
                             </td>
 
+
                             <td>
                               {
                                 execution.workflow_health
                               }
                             </td>
 
+
                             <td>
+
                               {
                                 execution.proposed_action
+
                                   ? `${execution.proposed_action.target || "Unknown"} → ${execution.proposed_action.new_value || "N/A"}`
+
                                   : "No action"
                               }
+
                             </td>
+
 
                             <td>
                               {
@@ -1224,11 +1468,13 @@ function Dashboard() {
                               }
                             </td>
 
+
                             <td>
                               {
                                 execution.execution_status || "N/A"
                               }
                             </td>
+
 
                             <td>
                               {
@@ -1236,12 +1482,15 @@ function Dashboard() {
                               }s
                             </td>
 
+
                             <td>
+
                               {
                                 new Date(
                                   execution.started_at
                                 ).toLocaleString()
                               }
+
                             </td>
 
                           </tr>
@@ -1250,6 +1499,7 @@ function Dashboard() {
                       )
 
                     )
+
                     : (
 
                       <tr>
@@ -1274,9 +1524,9 @@ function Dashboard() {
         </section>
 
 
-        {/* =========================
+        {/* =========================================
             WORKFLOW PIPELINE
-        ========================= */}
+        ========================================= */}
 
         <section
           className="dashboard-section"
@@ -1317,9 +1567,9 @@ function Dashboard() {
       </main>
 
 
-      {/* =========================
+      {/* =========================================
           FOOTER
-      ========================= */}
+      ========================================= */}
 
       <footer
         className="dashboard-footer"
@@ -1336,6 +1586,7 @@ function Dashboard() {
           </span>
 
         </div>
+
 
         <span>
           Operational Intelligence Dashboard
