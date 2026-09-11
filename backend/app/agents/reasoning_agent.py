@@ -3,6 +3,8 @@ import time
 
 from app.agents.state import AgentState
 
+from app.models.insight import Insight
+
 from app.services.gemini_insight_service import (
     GeminiInsightService
 )
@@ -32,7 +34,6 @@ def _validate_evidence_evaluation(
         evaluation,
         dict
     ):
-
         return (
             False,
             "Evidence evaluation is not a dictionary."
@@ -42,7 +43,6 @@ def _validate_evidence_evaluation(
         evaluation.get("sufficient"),
         bool
     ):
-
         return (
             False,
             "Evidence sufficiency is invalid."
@@ -58,7 +58,6 @@ def _validate_evidence_evaluation(
     for field in required_scores:
 
         try:
-
             score = float(
                 evaluation.get(field)
             )
@@ -67,7 +66,6 @@ def _validate_evidence_evaluation(
             TypeError,
             ValueError
         ):
-
             return (
                 False,
                 f"Invalid evidence score: {field}"
@@ -117,6 +115,10 @@ def _validate_evidence_evaluation(
     )
 
 
+# =========================================================
+# Agent Output Helpers
+# =========================================================
+
 def _copy_agent_outputs(
     state: AgentState
 ):
@@ -131,7 +133,7 @@ def _copy_agent_outputs(
 
 def _copy_errors(
     state: AgentState
-):
+    ):
 
     return list(
         state.get(
@@ -141,13 +143,295 @@ def _copy_errors(
     )
 
 
+# =========================================================
+# SLA Decision Builder
+# =========================================================
+
+def _build_sla_decision(
+    sla_prediction: dict,
+    sla_features: dict | None = None,
+) -> dict:
+
+    sla_prediction = (
+        sla_prediction
+        if isinstance(
+            sla_prediction,
+            dict
+        )
+        else {}
+    )
+
+    sla_features = (
+        sla_features
+        if isinstance(
+            sla_features,
+            dict
+        )
+        else {}
+    )
+
+    probability = sla_prediction.get(
+        "sla_breach_probability"
+    )
+
+    risk_level = sla_prediction.get(
+        "risk_level",
+        "Unknown"
+    )
+
+    if probability is None:
+
+        return {
+
+            "risk_level": risk_level,
+
+            "contributing_factors": [],
+
+            "explanation": (
+                "SLA breach probability is "
+                "currently unavailable."
+            ),
+
+            "recommendation": (
+                "Additional SLA prediction data "
+                "is required before taking "
+                "SLA-related action."
+            )
+        }
+
+    try:
+
+        probability = float(
+            probability
+        )
+
+    except (
+        TypeError,
+        ValueError
+    ):
+
+        probability = None
+
+    if probability is None:
+
+        return {
+
+            "risk_level": risk_level,
+
+            "contributing_factors": [],
+
+            "explanation": (
+                "The SLA prediction returned "
+                "an invalid probability."
+            ),
+
+            "recommendation": (
+                "Validate the SLA model output "
+                "before taking action."
+            )
+        }
+
+    probability = max(
+        0.0,
+        min(
+            1.0,
+            probability
+        )
+    )
+
+    def numeric(
+        name: str
+    ) -> float:
+
+        try:
+
+            return float(
+                sla_features.get(
+                    name,
+                    0
+                )
+            )
+
+        except (
+            TypeError,
+            ValueError
+        ):
+
+            return 0.0
+
+    backlog_age_hours = numeric(
+        "backlog_age_hours"
+    )
+
+    waiting_ratio = numeric(
+        "waiting_ratio"
+    )
+
+    blocker_density = numeric(
+        "blocker_density"
+    )
+
+    reassignment_rate = numeric(
+        "reassignment_rate"
+    )
+
+    dependency_count = numeric(
+        "dependency_count"
+    )
+
+    workflow_complexity = numeric(
+        "workflow_complexity"
+    )
+
+    agent_queue_length = numeric(
+        "agent_queue_length_at_submit"
+    )
+
+    response_time_hours = numeric(
+        "response_time_hours"
+    )
+
+    factors = []
+
+    if backlog_age_hours >= 72:
+
+        factors.append(
+            f"Long backlog age "
+            f"({backlog_age_hours:.1f} hours)."
+        )
+
+    elif backlog_age_hours >= 24:
+
+        factors.append(
+            f"Extended waiting time "
+            f"({backlog_age_hours:.1f} hours)."
+        )
+
+    if waiting_ratio >= 0.80:
+
+        factors.append(
+            f"High waiting ratio "
+            f"({waiting_ratio:.2f})."
+        )
+
+    elif waiting_ratio >= 0.60:
+
+        factors.append(
+            f"Elevated waiting ratio "
+            f"({waiting_ratio:.2f})."
+        )
+
+    if blocker_density > 0:
+
+        factors.append(
+            f"Workflow blocker density "
+            f"is {blocker_density:.2f}."
+        )
+
+    if reassignment_rate > 0:
+
+        factors.append(
+            f"Reassignment activity detected "
+            f"({reassignment_rate:.2f})."
+        )
+
+    if dependency_count > 0:
+
+        factors.append(
+            f"Workflow has "
+            f"{dependency_count:.0f} dependencies."
+        )
+
+    if workflow_complexity >= 3:
+
+        factors.append(
+            f"Elevated workflow complexity "
+            f"({workflow_complexity:.2f})."
+        )
+
+    if agent_queue_length >= 3:
+
+        factors.append(
+            f"Assigned agent has "
+            f"{agent_queue_length:.0f} other "
+            f"active workflow items."
+        )
+
+    if response_time_hours >= 24:
+
+        factors.append(
+            f"Response time is high "
+            f"({response_time_hours:.1f} hours)."
+        )
+
+    if not factors:
+
+        factors.append(
+            "The predictive model identified "
+            "workflow characteristics associated "
+            "with SLA breach risk."
+        )
+
+    explanation = (
+        f"The TensorFlow model predicts a "
+        f"{probability * 100:.1f}% probability "
+        f"of SLA breach, classified as "
+        f"{risk_level} risk."
+    )
+
+    if risk_level == "High":
+
+        recommendation = (
+            "Prioritize this workflow immediately. "
+            "Review the contributing factors, "
+            "resolve blockers or dependencies, "
+            "and consider escalation before the "
+            "SLA is breached."
+        )
+
+    elif risk_level == "Medium":
+
+        recommendation = (
+            "Monitor this workflow closely and "
+            "address the identified contributing "
+            "factors before the SLA risk increases."
+        )
+
+    elif risk_level == "Low":
+
+        recommendation = (
+            "Continue normal workflow monitoring. "
+            "No immediate SLA intervention is "
+            "required."
+        )
+
+    else:
+
+        recommendation = (
+            "Review the available workflow and "
+            "prediction data before taking "
+            "SLA-related action."
+        )
+
+    return {
+
+        "risk_level": risk_level,
+
+        "contributing_factors": factors,
+
+        "explanation": explanation,
+
+        "recommendation": recommendation
+    }
+
+
+# =========================================================
+# Reasoning Agent
+# =========================================================
+
 def reasoning_agent(
     state: AgentState
 ):
-
-    # =========================================================
-    # TRACE CONTEXT
-    # =========================================================
 
     set_agent_name(
         "reasoning_agent"
@@ -169,7 +453,9 @@ def reasoning_agent(
 
     evidence_evaluations = []
 
-    evidence_safety_status = "not_evaluated"
+    evidence_safety_status = (
+        "not_evaluated"
+    )
 
     # =========================================================
     # 1. READ EVIDENCE FROM STATE
@@ -194,6 +480,89 @@ def reasoning_agent(
         "insights",
         []
     )
+
+    sla_prediction = state.get(
+        "sla_prediction",
+        {}
+    )
+
+    sla_features = state.get(
+        "sla_features",
+        {}
+    )
+
+    # =========================================================
+    # NEW: ROOT CAUSE GRAPH
+    # =========================================================
+
+    root_cause_graph = state.get(
+        "root_cause_graph",
+        {}
+    )
+
+    if not isinstance(
+        root_cause_graph,
+        dict
+    ):
+
+        root_cause_graph = {}
+
+    graph_nodes = root_cause_graph.get(
+        "nodes",
+        []
+    )
+
+    graph_edges = root_cause_graph.get(
+        "edges",
+        []
+    )
+
+    if not isinstance(
+        graph_nodes,
+        list
+    ):
+
+        graph_nodes = []
+
+    if not isinstance(
+        graph_edges,
+        list
+    ):
+
+        graph_edges = []
+
+    logger.info(
+        "ROOT CAUSE GRAPH | "
+        "nodes=%s | edges=%s",
+        len(graph_nodes),
+        len(graph_edges)
+    )
+
+    trace_log(
+        "ROOT_CAUSE_GRAPH_RECEIVED",
+        (
+            f"nodes={len(graph_nodes)} "
+            f"edges={len(graph_edges)}"
+        )
+    )
+
+    # =========================================================
+    # SAFETY NORMALIZATION
+    # =========================================================
+
+    if not isinstance(
+        sla_prediction,
+        dict
+    ):
+
+        sla_prediction = {}
+
+    if not isinstance(
+        sla_features,
+        dict
+    ):
+
+        sla_features = {}
 
     if not isinstance(
         jira_evidence,
@@ -260,9 +629,18 @@ def reasoning_agent(
             "slack"
         ] = slack_evidence
 
+    # =========================================================
+    # NEW: PASS GRAPH INTO COMBINED EVIDENCE
+    # =========================================================
+
+    combined_evidence[
+        "root_cause_graph"
+    ] = root_cause_graph
+
     logger.info(
         "REASONING EVIDENCE | "
-        "jira=%s | slack=%s",
+        "jira=%s | slack=%s | "
+        "graph_nodes=%s | graph_edges=%s",
         len(
             combined_evidence.get(
                 "jira",
@@ -274,7 +652,9 @@ def reasoning_agent(
                 "slack",
                 []
             )
-        )
+        ),
+        len(graph_nodes),
+        len(graph_edges)
     )
 
     # =========================================================
@@ -293,14 +673,17 @@ def reasoning_agent(
 
         long_term_memory = []
 
-    logger.info(
-        "LONG-TERM MEMORY | "
-        "reasoning_agent | count=%s",
-        len(long_term_memory)
+    # =========================================================
+    # 4. BUILD SLA DECISION
+    # =========================================================
+
+    sla_decision = _build_sla_decision(
+        sla_prediction,
+        sla_features
     )
 
     # =========================================================
-    # 4. START WITH EXISTING PATTERN INSIGHTS
+    # 5. START WITH EXISTING INSIGHTS
     # =========================================================
 
     reasoning_inputs = list(
@@ -308,115 +691,68 @@ def reasoning_agent(
     )
 
     # =========================================================
-    # 5. FALLBACK:
-    #    CREATE INSIGHTS FROM JIRA EVIDENCE
+    # 6. CREATE EVIDENCE-BASED INSIGHTS IF NEEDED
     # =========================================================
 
     if not reasoning_inputs:
 
-        logger.warning(
-            "NO PATTERN INSIGHTS | "
-            "attempting evidence-based insight generation"
-        )
-
-        for item in jira_evidence:
+        for jira_item in jira_evidence:
 
             if not isinstance(
-                item,
+                jira_item,
                 dict
             ):
 
                 continue
 
             issue_key = (
-                item.get("key")
-                or item.get("issue_key")
-                or item.get("ticket")
-                or item.get("id")
-            )
-
-            if not issue_key:
-
-                logger.warning(
-                    "JIRA EVIDENCE WITHOUT ISSUE KEY"
+                jira_item.get(
+                    "ticket_id"
                 )
-
-                continue
-
-            summary = (
-                item.get("summary")
-                or item.get("title")
-                or item.get("description")
-                or "Jira operational issue"
+                or jira_item.get(
+                    "issue_key"
+                )
+                or jira_item.get(
+                    "key"
+                )
             )
 
-            status = (
-                item.get("status")
-                or item.get("issue_status")
-                or item.get("state")
-                or "Unknown"
+            title = (
+                jira_item.get(
+                    "title"
+                )
+                or jira_item.get(
+                    "summary"
+                )
+                or "Jira workflow issue"
             )
 
-            priority = (
-                item.get("priority")
-                or item.get("priority_name")
-                or "Unknown"
+            severity = (
+                jira_item.get(
+                    "risk_level"
+                )
+                or jira_item.get(
+                    "severity"
+                )
+                or jira_item.get(
+                    "priority"
+                )
+                or "Medium"
             )
 
-            days_waiting = item.get(
+            days_waiting = jira_item.get(
                 "days_waiting"
             )
 
-            priority_text = str(
-                priority
-            ).strip().lower()
-
-            severity = "Low"
-
-            if priority_text in {
-                "highest",
-                "critical",
-                "blocker"
-            }:
-
-                severity = "High"
-
-            elif priority_text in {
-                "high",
-                "major"
-            }:
-
-                severity = "High"
-
-            elif priority_text in {
-                "medium",
-                "normal"
-            }:
-
-                severity = "Medium"
-
-            if isinstance(
-                days_waiting,
-                (int, float)
-            ):
-
-                if days_waiting >= 7:
-
-                    severity = "High"
-
-                elif days_waiting >= 3:
-
-                    if severity == "Low":
-
-                        severity = "Medium"
-
             issue_text = (
-                f"{issue_key}: {summary}"
+                f"{issue_key}: {title}"
+                if issue_key
+                else title
             )
 
             impact_text = (
-                f"Ticket {issue_key} is currently "
-                f"{status} with priority {priority}."
+                "The workflow may be affected "
+                "by the observed Jira conditions."
             )
 
             if isinstance(
@@ -439,18 +775,11 @@ def reasoning_agent(
 
             try:
 
-                from app.services.workflow_analyzer import (
-                    WorkflowInsight
-                )
-
                 evidence_insight = (
-                    WorkflowInsight(
+                    Insight(
                         issue=issue_text,
-
                         severity=severity,
-
                         impact=impact_text,
-
                         recommendation=(
                             recommendation_text
                         )
@@ -459,13 +788,6 @@ def reasoning_agent(
 
                 reasoning_inputs.append(
                     evidence_insight
-                )
-
-                logger.info(
-                    "EVIDENCE INSIGHT CREATED | "
-                    "ticket=%s | severity=%s",
-                    issue_key,
-                    severity
                 )
 
             except Exception as e:
@@ -479,27 +801,11 @@ def reasoning_agent(
 
                 continue
 
-        logger.info(
-            "EVIDENCE-BASED INSIGHTS CREATED | "
-            "count=%s",
-            len(reasoning_inputs)
-        )
-
     # =========================================================
-    # 6. NOTHING TO REASON ABOUT
+    # 7. NOTHING TO REASON ABOUT
     # =========================================================
 
     if not reasoning_inputs:
-
-        logger.warning(
-            "REASONING STOPPED | "
-            "no insights and no usable Jira evidence"
-        )
-
-        trace_log(
-            "REASONING_STOPPED",
-            "reason=no_reasoning_inputs"
-        )
 
         execution_time = (
             time.perf_counter()
@@ -532,6 +838,14 @@ def reasoning_agent(
                     len(slack_evidence)
                 ),
 
+                "root_cause_graph_nodes": (
+                    len(graph_nodes)
+                ),
+
+                "root_cause_graph_edges": (
+                    len(graph_edges)
+                ),
+
                 "evidence_evaluations": (
                     evidence_evaluations
                 ),
@@ -540,9 +854,12 @@ def reasoning_agent(
                     evidence_safety_status
                 ),
 
-                "reason": (
-                    "No usable insights or evidence "
-                    "were available for reasoning."
+                "sla_prediction": (
+                    sla_prediction
+                ),
+
+                "sla_decision": (
+                    sla_decision
                 )
             },
 
@@ -552,19 +869,6 @@ def reasoning_agent(
 
             "error": None
         }
-
-        logger.info(
-            "AGENT END | reasoning_agent | "
-            "no reasoning inputs"
-        )
-
-        trace_log(
-            "AGENT_END",
-            (
-                f"execution_time={execution_time:.2f}s "
-                "status=no_reasoning_inputs"
-            )
-        )
 
         return {
 
@@ -576,21 +880,35 @@ def reasoning_agent(
 
             "agent_outputs": (
                 agent_outputs
-            )
+            ),
+
+            "sla_prediction": (
+                sla_prediction
+            ),
+
+            "sla_features": (
+                sla_features
+            ),
+
+            "sla_decision": (
+                sla_decision
+            ),
+
+            "root_cause_graph": (
+                root_cause_graph
+            ),
+
+            "reasoning_completed": True
         }
 
     # =========================================================
-    # 7. INITIALIZE GEMINI ONLY WHEN REQUIRED
+    # 8. INITIALIZE GEMINI
     # =========================================================
 
     try:
 
         gemini_service = (
             GeminiInsightService()
-        )
-
-        trace_log(
-            "GEMINI_SERVICE_READY"
         )
 
     except Exception as e:
@@ -600,16 +918,10 @@ def reasoning_agent(
             e
         )
 
-        trace_log(
-            "GEMINI_SERVICE_FAILED",
-            str(e),
-            logging.ERROR
-        )
-
         gemini_service = None
 
     # =========================================================
-    # 8. BUILD REASONING CONTEXT
+    # 9. BUILD REASONING CONTEXT
     # =========================================================
 
     analysis_context = {
@@ -618,12 +930,30 @@ def reasoning_agent(
 
         "long_term_memory": (
             long_term_memory
+        ),
+
+        "sla_prediction": (
+            sla_prediction
+        ),
+
+        "sla_features": (
+            sla_features
+        ),
+
+        "sla_decision": (
+            sla_decision
+        ),
+
+        # Explicit graph field
+        "root_cause_graph": (
+            root_cause_graph
         )
     }
 
     logger.info(
         "REASONING CONTEXT | "
-        "jira=%s | slack=%s | memory=%s",
+        "jira=%s | slack=%s | memory=%s | "
+        "graph_nodes=%s | graph_edges=%s",
         len(
             analysis_context.get(
                 "jira",
@@ -641,11 +971,13 @@ def reasoning_agent(
                 "long_term_memory",
                 []
             )
-        )
+        ),
+        len(graph_nodes),
+        len(graph_edges)
     )
 
     # =========================================================
-    # 9. GEMINI REASONING + EVIDENCE SAFETY GATE
+    # 10. GEMINI REASONING + EVIDENCE SAFETY GATE
     # =========================================================
 
     try:
@@ -662,10 +994,6 @@ def reasoning_agent(
                         "GeminiInsightService "
                         "is unavailable."
                     )
-
-                # =================================================
-                # 9A. EVIDENCE EVALUATION
-                # =================================================
 
                 trace_log(
                     "EVIDENCE_EVALUATION_START"
@@ -685,15 +1013,22 @@ def reasoning_agent(
                 ):
 
                     evaluation = {
+
                         "sufficient": False,
+
                         "relevance": 0.0,
+
                         "specificity": 0.0,
+
                         "support": 0.0,
+
                         "completeness": 0.0,
+
                         "reason": (
                             "Invalid evidence "
                             "evaluation returned."
                         ),
+
                         "missing_information": []
                     }
 
@@ -709,24 +1044,16 @@ def reasoning_agent(
                         "blocked_invalid_evaluation"
                     )
 
-                    logger.warning(
-                        "EVIDENCE GUARDRAIL BLOCKED | "
-                        "reason=%s",
-                        validation_reason
-                    )
-
-                    trace_log(
-                        "EVIDENCE_GUARDRAIL_BLOCKED",
-                        (
-                            f"reason={validation_reason}"
-                        ),
-                        logging.WARNING
-                    )
-
                     evaluation = {
+
                         **evaluation,
+
                         "sufficient": False,
-                        "guardrail_status": "blocked",
+
+                        "guardrail_status": (
+                            "blocked"
+                        ),
+
                         "guardrail_reason": (
                             validation_reason
                         )
@@ -742,47 +1069,6 @@ def reasoning_agent(
                     evaluation
                 )
 
-                logger.info(
-                    "EVIDENCE EVALUATION | "
-                    "sufficient=%s | "
-                    "relevance=%.2f | "
-                    "specificity=%.2f | "
-                    "support=%.2f | "
-                    "completeness=%.2f",
-                    evaluation.get(
-                        "sufficient",
-                        False
-                    ),
-                    float(
-                        evaluation.get(
-                            "relevance",
-                            0.0
-                        )
-                    ),
-                    float(
-                        evaluation.get(
-                            "specificity",
-                            0.0
-                        )
-                    ),
-                    float(
-                        evaluation.get(
-                            "support",
-                            0.0
-                        )
-                    ),
-                    float(
-                        evaluation.get(
-                            "completeness",
-                            0.0
-                        )
-                    )
-                )
-
-                # =================================================
-                # 9B. HARD EVIDENCE SAFETY GATE
-                # =================================================
-
                 if not evaluation.get(
                     "sufficient",
                     False
@@ -792,20 +1078,6 @@ def reasoning_agent(
                         "blocked_insufficient_evidence"
                     )
 
-                    logger.warning(
-                        "EVIDENCE INSUFFICIENT | "
-                        "Gemini insight generation skipped | "
-                        "fallback recommendation blocked"
-                    )
-
-                    trace_log(
-                        "EVIDENCE_REASONING_BLOCKED",
-                        (
-                            "reason=insufficient_evidence"
-                        ),
-                        logging.WARNING
-                    )
-
                     if hasattr(
                         insight,
                         "impact"
@@ -813,7 +1085,8 @@ def reasoning_agent(
 
                         insight.impact = (
                             "Impact cannot be reliably "
-                            "determined from the available evidence."
+                            "determined from the available "
+                            "evidence."
                         )
 
                     if hasattr(
@@ -823,7 +1096,8 @@ def reasoning_agent(
 
                         insight.recommendation = (
                             "Additional evidence is required "
-                            "before generating a reliable recommendation."
+                            "before generating a reliable "
+                            "recommendation."
                         )
 
                     updated_insight = (
@@ -835,11 +1109,6 @@ def reasoning_agent(
                     )
 
                     continue
-
-                # =================================================
-                # 9C. SUFFICIENT EVIDENCE
-                #     → ALLOW GEMINI REASONING
-                # =================================================
 
                 evidence_safety_status = (
                     "approved_for_reasoning"
@@ -864,10 +1133,6 @@ def reasoning_agent(
                     "INSIGHT_GENERATION_SUCCESS"
                 )
 
-                logger.info(
-                    "GEMINI REASONING SUCCESS"
-                )
-
             except Exception as e:
 
                 logger.error(
@@ -884,13 +1149,6 @@ def reasoning_agent(
 
                 evidence_safety_status = (
                     "blocked_reasoning_error"
-                )
-
-                logger.warning(
-                    "REASONING GUARDRAIL | "
-                    "fallback recommendation blocked | "
-                    "reason=%s",
-                    e
                 )
 
                 if hasattr(
@@ -923,39 +1181,13 @@ def reasoning_agent(
             )
 
         # =========================================================
-        # 10. FINAL EXECUTION METRICS
+        # 11. FINAL METRICS
         # =========================================================
 
         execution_time = (
             time.perf_counter()
             - start_time
         )
-
-        logger.info(
-            "AGENT END | reasoning_agent | "
-            "execution_time=%.2fs | "
-            "insights=%s | "
-            "gemini_used=%s | "
-            "evidence_safety=%s",
-            execution_time,
-            len(updated_insights),
-            gemini_used,
-            evidence_safety_status
-        )
-
-        trace_log(
-            "AGENT_END",
-            (
-                f"execution_time={execution_time:.2f}s "
-                f"insights={len(updated_insights)} "
-                f"gemini_used={gemini_used} "
-                f"evidence_safety={evidence_safety_status}"
-            )
-        )
-
-        # =========================================================
-        # 11. STRUCTURED AGENT OUTPUT
-        # =========================================================
 
         agent_outputs = _copy_agent_outputs(
             state
@@ -997,12 +1229,28 @@ def reasoning_agent(
                     )
                 ),
 
+                "root_cause_graph_nodes": (
+                    len(graph_nodes)
+                ),
+
+                "root_cause_graph_edges": (
+                    len(graph_edges)
+                ),
+
                 "evidence_evaluations": (
                     evidence_evaluations
                 ),
 
                 "evidence_safety_status": (
                     evidence_safety_status
+                ),
+
+                "sla_prediction": (
+                    sla_prediction
+                ),
+
+                "sla_decision": (
+                    sla_decision
                 )
             },
 
@@ -1012,12 +1260,6 @@ def reasoning_agent(
 
             "error": None
         }
-
-        logger.info(
-            "STRUCTURED OUTPUT | "
-            "agent=reasoning_agent | "
-            "status=success"
-        )
 
         return {
 
@@ -1031,12 +1273,27 @@ def reasoning_agent(
 
             "agent_outputs": (
                 agent_outputs
-            )
-        }
+            ),
 
-    # =========================================================
-    # 12. COMPLETE AGENT FAILURE
-    # =========================================================
+            "sla_prediction": (
+                sla_prediction
+            ),
+
+            "sla_features": (
+                sla_features
+            ),
+
+            "sla_decision": (
+                sla_decision
+            ),
+
+            # Keep graph available downstream
+            "root_cause_graph": (
+                root_cause_graph
+            ),
+
+            "reasoning_completed": True
+        }
 
     except Exception as e:
 
@@ -1049,15 +1306,6 @@ def reasoning_agent(
             "AGENT FAILED | reasoning_agent | "
             "execution_time=%.2fs",
             execution_time
-        )
-
-        trace_log(
-            "AGENT_FAILED",
-            (
-                f"execution_time={execution_time:.2f}s "
-                f"error={e}"
-            ),
-            logging.ERROR
         )
 
         agent_outputs = _copy_agent_outputs(
@@ -1074,12 +1322,28 @@ def reasoning_agent(
 
             "output": {
 
+                "root_cause_graph_nodes": (
+                    len(graph_nodes)
+                ),
+
+                "root_cause_graph_edges": (
+                    len(graph_edges)
+                ),
+
                 "evidence_evaluations": (
                     evidence_evaluations
                 ),
 
                 "evidence_safety_status": (
                     evidence_safety_status
+                ),
+
+                "sla_prediction": (
+                    sla_prediction
+                ),
+
+                "sla_decision": (
+                    sla_decision
                 )
             },
 
@@ -1095,6 +1359,24 @@ def reasoning_agent(
             "agent_outputs": (
                 agent_outputs
             ),
+
+            "sla_prediction": (
+                sla_prediction
+            ),
+
+            "sla_features": (
+                sla_features
+            ),
+
+            "sla_decision": (
+                sla_decision
+            ),
+
+            "root_cause_graph": (
+                root_cause_graph
+            ),
+
+            "reasoning_completed": False,
 
             "errors": [
                 str(e)
