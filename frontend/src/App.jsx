@@ -49,18 +49,6 @@ function Dashboard() {
   const location = useLocation();
   const { token, loading: authLoading } = useAuth();
 
-  if (authLoading) return <div>Loading...</div>;
-
-  if (location.pathname === "/login") {
-    return <Login />;
-  }
-
-  if (!token) {
-    window.location.href = "/login";
-    return null;
-  }
-
-
   const [
     data,
     setData
@@ -255,6 +243,29 @@ function Dashboard() {
 
 
   // =========================================
+  // AUTHENTICATION & ROUTING
+  // =========================================
+
+  if (authLoading) {
+    return (
+      <div className="dashboard-state-screen">
+        <div className="dashboard-loader">
+          <h2>Authenticating...</h2>
+        </div>
+      </div>
+    );
+  }
+
+  if (location.pathname === "/login") {
+    return <Login />;
+  }
+
+  if (!token) {
+    window.location.href = "/login";
+    return null;
+  }
+
+  // =========================================
   // PHASE 3.13 - CHAT
   // =========================================
 
@@ -263,9 +274,7 @@ function Dashboard() {
   // Hooks must always run in the same order.
 
   if (location.pathname === "/chat") {
-
     return <Chat />;
-
   }
   // =========================================
 // PHASE 5.1 - WORKFLOW EXPLORER
