@@ -28,6 +28,11 @@ from app.api.chat import (
     router as chat_router
 )
 
+from app.api.auth import (
+    router as auth_router
+)
+
+
 
 # =========================================================
 # LOGGING CONFIGURATION
@@ -119,10 +124,22 @@ app.include_router(
     prefix="/api"
 )
 
+app.include_router(
+    auth_router,
+    prefix="/api/auth",
+    tags=["Auth"]
+)
+
 
 # =========================================================
 # ROOT
 # =========================================================
+
+from app.db.database import engine, Base
+from app.models.user import User # Import to ensure it's registered with Base
+
+# Create tables if they don't exist
+Base.metadata.create_all(bind=engine)
 
 @app.get("/")
 def root():

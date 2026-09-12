@@ -1,9 +1,11 @@
 import { Link, useLocation } from "react-router-dom";
+import { useAuth } from "../context/AuthContext";
 import "./Sidebar.css";
 
 
 function Sidebar({ collapsed, setCollapsed }) {
   const location = useLocation();
+  const { logout } = useAuth();
 
   const scrollToSection = (id) => {
     const element = document.getElementById(id);
@@ -191,21 +193,22 @@ function Sidebar({ collapsed, setCollapsed }) {
           )}
         </div>
 
-        {/* HOME */}
+        {/* LOGOUT */}
 
-        <Link
-          to="/"
+        <button
+          onClick={logout}
           className="sidebar-home-link"
-          title={collapsed ? "Back to Home" : ""}
+          style={{ background: 'none', border: 'none', width: '100%', textAlign: 'left', cursor: 'pointer' }}
+          title={collapsed ? "Logout" : ""}
         >
-          <span className="sidebar-icon">←</span>
+          <span className="sidebar-icon">🚪</span>
 
           {!collapsed && (
             <span className="sidebar-item-text">
-              Back to Home
+              Logout
             </span>
           )}
-        </Link>
+        </button>
 
       </div>
     </aside>

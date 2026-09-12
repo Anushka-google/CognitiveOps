@@ -38,12 +38,27 @@ import RiskTable from "./components/RiskTable";
 import ExecutiveSummary from "./components/ExecutiveSummary";
 import ApprovalPanel from "./components/ApprovalPanel";
 
+import Login from "./pages/Login";
+import { useAuth } from "./context/AuthContext";
+
 import "./pages/Dashboard.css";
 
 
 function Dashboard() {
 
   const location = useLocation();
+  const { token, loading: authLoading } = useAuth();
+
+  if (authLoading) return <div>Loading...</div>;
+
+  if (location.pathname === "/login") {
+    return <Login />;
+  }
+
+  if (!token) {
+    window.location.href = "/login";
+    return null;
+  }
 
 
   const [
