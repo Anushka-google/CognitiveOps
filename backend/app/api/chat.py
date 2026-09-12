@@ -1,6 +1,8 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException, Depends
 from pydantic import BaseModel
-from fastapi import APIRouter, HTTPException
+
+from app.api.deps import get_current_user
+from app.models.user import User
 
 from app.services.intent_service import (
     IntentService
@@ -159,7 +161,8 @@ def _build_citations(
     "/chat"
 )
 async def chat(
-    request: ChatRequest
+    request: ChatRequest,
+    current_user: User = Depends(get_current_user)
 ):
 
     question = (

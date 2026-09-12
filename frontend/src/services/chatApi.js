@@ -1,12 +1,14 @@
 const API_URL = import.meta.env.VITE_API_URL;
 
 export async function askChat(question) {
+  const token = localStorage.getItem('token');
   const response = await fetch(
     `${API_URL}/api/chat`,
     {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
+        "Authorization": token ? `Bearer ${token}` : "",
       },
       body: JSON.stringify({ question }),
     }
