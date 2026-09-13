@@ -21,3 +21,5 @@ pyspark
 python-json-logger
 pytest
 httpx
+tensorflow-cpu
+sentence-transformers
