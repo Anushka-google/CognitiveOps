@@ -165,11 +165,27 @@ function Sidebar({ collapsed, setCollapsed }) {
             }`}
             title={collapsed ? "AI Chat" : ""}
         >
-        <span className="sidebar-icon">✦</span>
+        <span className="sidebar-icon">🤖</span>
 
         {!collapsed && (
           <span className="sidebar-item-text">
            AI Chat
+            </span>
+         )}
+        </Link>
+        
+        <Link
+            to="/integrations"
+            className={`sidebar-item sidebar-link ${
+            location.pathname === "/integrations" ? "active" : ""
+            }`}
+            title={collapsed ? "Integrations" : ""}
+        >
+        <span className="sidebar-icon">🔌</span>
+
+        {!collapsed && (
+          <span className="sidebar-item-text">
+           Integrations
             </span>
          )}
         </Link>

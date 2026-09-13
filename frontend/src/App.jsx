@@ -39,6 +39,7 @@ import ExecutiveSummary from "./components/ExecutiveSummary";
 import ApprovalPanel from "./components/ApprovalPanel";
 
 import Login from "./pages/Login";
+import Integrations from "./pages/Integrations";
 import { useAuth } from "./context/AuthContext";
 
 import "./pages/Dashboard.css";
@@ -275,6 +276,15 @@ function Dashboard() {
 
   if (location.pathname === "/chat") {
     return <Chat />;
+  }
+
+  if (location.pathname === "/integrations") {
+    return (
+      <div className="dashboard-container">
+        <Sidebar />
+        <Integrations />
+      </div>
+    );
   }
   // =========================================
 // PHASE 5.1 - WORKFLOW EXPLORER
