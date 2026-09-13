@@ -19,3 +19,4 @@ pytest
 httpx
 tensorflow
 sentence-transformers
+google-genai
