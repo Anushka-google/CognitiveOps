@@ -36,3 +36,17 @@ export async function testSlackConnection() {
   if (!response.ok) throw new Error("Failed to test Slack connection");
   return await response.json();
 }
+
+export async function saveSlackConfig(webhook_url, api_token) {
+  const token = localStorage.getItem('token');
+  const response = await fetch(`${API_URL}/api/slack/config`, {
+    method: "POST",
+    headers: { 
+      "Content-Type": "application/json",
+      "Authorization": token ? `Bearer ${token}` : "" 
+    },
+    body: JSON.stringify({ webhook_url, api_token })
+  });
+  if (!response.ok) throw new Error("Failed to save Slack config");
+  return await response.json();
+}

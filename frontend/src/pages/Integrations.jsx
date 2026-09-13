@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getJiraStatus, testJiraConnection, getSlackStatus, testSlackConnection } from "../services/integrationApi";
+import { getJiraStatus, testJiraConnection, getSlackStatus, testSlackConnection, saveSlackConfig } from "../services/integrationApi";
 import "./Integrations.css";
 
 function Integrations() {
@@ -11,6 +11,10 @@ function Integrations() {
   // Modal State
   const [activeModal, setActiveModal] = useState(null);
   const [isSaving, setIsSaving] = useState(false);
+
+  // Form State
+  const [slackWebhook, setSlackWebhook] = useState("");
+  const [slackToken, setSlackToken] = useState("");
 
   useEffect(() => {
     async function loadStatuses() {
@@ -58,15 +62,33 @@ function Integrations() {
     }
   };
 
-  const handleSaveConfiguration = (e) => {
+  const handleSaveConfiguration = async (e) => {
     e.preventDefault();
     setIsSaving(true);
-    // Mocking an API call to save configurations to the DB
-    setTimeout(() => {
-      setIsSaving(false);
-      setActiveModal(null);
-      setTestResult({ type: "success", message: `${activeModal.toUpperCase()} configuration saved successfully!`});
-    }, 1000);
+    
+    if (activeModal === 'slack') {
+      try {
+        await saveSlackConfig(slackWebhook, slackToken);
+        setSlackStatus({
+          connected: true,
+          details: {
+            webhook_configured: !!slackWebhook,
+            api_token_configured: !!slackToken
+          }
+        });
+        setTestResult({ type: "success", message: "Slack configuration saved! You can now test the connection."});
+      } catch (err) {
+        setTestResult({ type: "error", message: "Failed to save Slack config."});
+      }
+    } else {
+      // Mock Jira save
+      setTimeout(() => {
+        setTestResult({ type: "success", message: "Jira configuration saved!"});
+      }, 500);
+    }
+    
+    setIsSaving(false);
+    setActiveModal(null);
   };
 
   if (loading) {
@@ -190,11 +212,11 @@ function Integrations() {
                 <>
                   <div className="form-group">
                     <label>Incoming Webhook URL</label>
-                    <input type="url" placeholder="https://hooks.slack.com/services/..." />
+                    <input type="url" placeholder="https://hooks.slack.com/services/..." value={slackWebhook} onChange={(e) => setSlackWebhook(e.target.value)} />
                   </div>
                   <div className="form-group">
                     <label>Bot User OAuth Token</label>
-                    <input type="password" placeholder="xoxb-your-token" />
+                    <input type="password" placeholder="xoxb-your-token" value={slackToken} onChange={(e) => setSlackToken(e.target.value)} />
                   </div>
                 </>
               )}
