@@ -207,7 +207,9 @@ app.include_router(
 # =========================================================
 
 from app.db.database import engine, Base
-from app.models.user import User # Import to ensure it's registered with Base
+from app.models.insight import Insight
+from app.models.workflow import WorkflowRecord
+from app.models.analytics import AnalyticsSnapshot # Import to ensure it's registered with Base
 
 # Create tables if they don't exist
 Base.metadata.create_all(bind=engine)

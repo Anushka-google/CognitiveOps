@@ -40,6 +40,7 @@ import ApprovalPanel from "./components/ApprovalPanel";
 
 import Login from "./pages/Login";
 import Integrations from "./pages/Integrations";
+import AnalyticsDashboard from "./components/AnalyticsDashboard";
 import { useAuth } from "./context/AuthContext";
 
 import "./pages/Dashboard.css";
@@ -907,13 +908,16 @@ if (location.pathname === "/workflow") {
               </span>
 
               <h2>
-                Risk & Issue Intelligence
+                Historical Analytics & Intelligence
               </h2>
 
             </div>
 
           </div>
 
+          <div style={{ marginBottom: '32px' }}>
+             <AnalyticsDashboard />
+          </div>
 
           <div
             className="dashboard-analytics-grid"

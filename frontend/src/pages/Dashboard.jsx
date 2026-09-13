@@ -34,10 +34,11 @@ import SeverityPieChart from "./components/SeverityPieChart";
 import RiskCards from "./components/RiskCards";
 import RiskPieChart from "./components/RiskPieChart";
 import RiskTable from "./components/RiskTable";
-import ExecutiveSummary from "./components/ExecutiveSummary";
-import ApprovalPanel from "./components/ApprovalPanel";
+import ExecutiveSummary from "../components/ExecutiveSummary";
+import AlertFeed from "../components/AlertFeed";
+import AnalyticsDashboard from "../components/AnalyticsDashboard";
 
-import "./pages/Dashboard.css";
+import "./Dashboard.css";
 
 
 function Dashboard() {
