@@ -1,0 +1,40 @@
+{
+    "evaluations": [
+        {
+            "suite": "LLM & Agent Evaluation",
+            "files_tested": "test_planner.py test_gemini_insight.py test_agentic_loop.py",
+            "metrics": {
+                "total_tests": 0,
+                "passed": 0,
+                "failed": 0,
+                "success_rate": 0,
+                "execution_latency_seconds": 35.87,
+                "mrr_score": "N/A"
+            }
+        },
+        {
+            "suite": "RAG & Retrieval Evaluation",
+            "files_tested": "test_retrieval.py test_rag_reliability.py",
+            "metrics": {
+                "total_tests": 1,
+                "passed": 1,
+                "failed": 0,
+                "success_rate": 100.0,
+                "execution_latency_seconds": 14.62,
+                "mrr_score": 1.0
+            }
+        },
+        {
+            "suite": "ML SLA Predictive Evaluation",
+            "files_tested": "test_sla_features.py test_sla_reasoning.py",
+            "metrics": {
+                "total_tests": 3,
+                "passed": 2,
+                "failed": 1,
+                "success_rate": 66.67,
+                "execution_latency_seconds": 3.35,
+                "mrr_score": "N/A"
+            }
+        }
+    ]
+}
