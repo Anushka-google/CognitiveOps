@@ -51,7 +51,7 @@ class SparkAnalyticsService:
                 "status": str(t.status) if t.status else "Unknown",
                 "assignee": str(t.assignee) if t.assignee else "Unassigned",
                 "days_waiting": int(t.days_waiting) if t.days_waiting is not None else 0,
-                "dependencies": str(t.dependencies) if t.dependencies else ""
+                "dependencies": ""  # WorkflowRecord does not have a dependencies attribute
             })
             
         # Add some dirty mock records to strictly demonstrate Phase 7.2 Cleaning
