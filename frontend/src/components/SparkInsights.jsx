@@ -1,23 +1,25 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import "./SparkInsights.css";
 
 const API_URL = import.meta.env.VITE_API_URL;
 
 function SparkInsights() {
   const [data, setData] = useState(null);
+  const [stages, setStages] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
 
-  const fetchSparkData = async () => {
+  const runFullETL = async () => {
     setLoading(true);
     setError(null);
     try {
-      const response = await fetch(`${API_URL}/api/reports/spark-insights`);
+      const response = await fetch(`${API_URL}/api/reports/spark-etl`);
       const result = await response.json();
-      if (result.success) {
+      if (result.status === "success") {
         setData(result.data);
+        setStages(result.pipeline_stages);
       } else {
-        setError(result.error || "Failed to fetch Spark insights");
+        setError(result.message || "Failed to execute PySpark ETL pipeline");
       }
     } catch (err) {
       setError(err.message);
@@ -26,50 +28,67 @@ function SparkInsights() {
     }
   };
 
-  useEffect(() => {
-    fetchSparkData();
-  }, []);
-
   return (
-    <div className="spark-container">
-      <div className="spark-header">
-        <div className="spark-title">
-          <span className="spark-icon">⚡</span>
-          <h3>PySpark Big Data Engine</h3>
+    <div className="spark-wrapper">
+      <div className="spark-container">
+        <div className="spark-header">
+          <div className="spark-title">
+            <span className="spark-icon">⚡</span>
+            <h3>Phase 7: Complete PySpark ETL Pipeline</h3>
+          </div>
+          <button className="spark-refresh-btn" onClick={runFullETL} disabled={loading}>
+            {loading ? "Executing Pipeline..." : "Run End-to-End ETL"}
+          </button>
         </div>
-        <button className="spark-refresh-btn" onClick={fetchSparkData} disabled={loading}>
-          {loading ? "Processing..." : "Run Spark Job"}
-        </button>
-      </div>
-      
-      <p className="spark-description">
-        Distributed DataFrames compute team SLA breaches and bottleneck aggregations across the entire historical data lake.
-      </p>
+        
+        <p className="spark-description">
+          Executes the complete Big Data pipeline: Extract → Clean (drop duplicates/nulls) → Feature Transform → Aggregate → Load to PostgreSQL.
+        </p>
 
-      {error && <div className="spark-error">{error}</div>}
+        {error && <div className="spark-error">{error}</div>}
 
-      {data && !loading && (
-        <div className="spark-grid">
-          {data.map((team, index) => (
-            <div key={index} className="spark-card">
-              <div className="spark-card-header">
-                <h4>{team.team_name}</h4>
-                <span className="spark-region">{team.region}</span>
-              </div>
-              <div className="spark-metrics">
-                <div className="spark-metric">
-                  <span className="spark-value">{team.active_workflows}</span>
-                  <span className="spark-label">Active Workflows</span>
+        {stages && !loading && (
+          <div className="spark-stages">
+            <h4>ETL Pipeline Execution Log</h4>
+            <div className="stages-grid">
+              {stages.map((stage, idx) => (
+                <div key={idx} className="stage-card">
+                  <div className="stage-badge">{idx + 1}</div>
+                  <h5>{stage.stage}</h5>
+                  <pre>{JSON.stringify(stage, null, 2).replace(/"stage": ".*",?\n?/, '')}</pre>
                 </div>
-                <div className="spark-metric">
-                  <span className="spark-value">{team.avg_days_waiting.toFixed(1)}</span>
-                  <span className="spark-label">Avg Wait (Days)</span>
-                </div>
-              </div>
+              ))}
             </div>
-          ))}
-        </div>
-      )}
+          </div>
+        )}
+
+        {data && !loading && (
+          <div className="spark-table-container" style={{ marginTop: '24px' }}>
+            <table className="spark-table">
+              <thead>
+                <tr>
+                  <th>Team / Assignee</th>
+                  <th>Total Workflows</th>
+                  <th>Avg Waiting (Days)</th>
+                  <th>Blocker Density</th>
+                  <th>High-Risk Workflows</th>
+                </tr>
+              </thead>
+              <tbody>
+                {data.map((row, index) => (
+                  <tr key={index}>
+                    <td>{row.team_name || row.assignee || "Unknown"}</td>
+                    <td>{row.total_workflows}</td>
+                    <td>{row.avg_waiting_time}</td>
+                    <td>{(row.blocker_density * 100).toFixed(0)}%</td>
+                    <td>{row.high_risk_workflows}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </div>
     </div>
   );
 }

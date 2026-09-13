@@ -20,17 +20,17 @@ def reports_status():
     return {"message": "Reports API is reachable."}
 
 @router.get(
-    "/spark-insights",
-    summary="Big Data Spark Aggregations",
-    description="Triggers a PySpark job to calculate team SLA and bottleneck aggregations."
+    "/spark-etl",
+    summary="Phase 7: End-to-End PySpark ETL Pipeline",
+    description="Extracts raw data, Cleans, Transforms Features, Aggregates, and Loads to Database."
 )
-def get_spark_insights():
+def run_spark_etl():
     try:
         spark_service = SparkAnalyticsService()
-        results = spark_service.run_workflow_aggregation()
-        return {"success": True, "data": results}
+        results = spark_service.execute_full_etl_pipeline()
+        return results
     except Exception as e:
-        return {"success": False, "error": str(e)}
+        return {"status": "error", "message": str(e)}
 
 @router.get(
     "/analytics/dashboard",
