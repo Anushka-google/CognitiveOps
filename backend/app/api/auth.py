@@ -10,9 +10,20 @@ from app.core.security import get_password_hash, verify_password, create_access_
 
 router = APIRouter()
 
-@router.post("/signup", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
+@router.post(
+    "/signup", 
+    response_model=UserResponse, 
+    status_code=status.HTTP_201_CREATED,
+    summary="Register a new user",
+    responses={
+        201: {"description": "User successfully created"},
+        400: {"description": "User with this email already exists"}
+    }
+)
 def signup(user_in: UserCreate, db: Session = Depends(get_db)):
     """
+    Register a new user for CognitiveOps.
+
     Concept for Interview: Unique Constraints & Idempotency.
     We check if the email exists to enforce unique constraints at the application level 
     before trying to insert to avoid raw Database IntegrityErrors.
@@ -34,9 +45,19 @@ def signup(user_in: UserCreate, db: Session = Depends(get_db)):
     db.refresh(db_user)
     return db_user
 
-@router.post("/login", response_model=Token)
+@router.post(
+    "/login", 
+    response_model=Token,
+    summary="Login for an Access Token",
+    responses={
+        200: {"description": "Successfully authenticated and returns a JWT"},
+        401: {"description": "Incorrect email or password"}
+    }
+)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """
+    Authenticate and receive a JWT access token.
+    
     Concept for Interview: Form Data vs JSON
     OAuth2 spec specifically requires password credentials to be sent as form data 
     (application/x-www-form-urlencoded), not JSON. This is why we use OAuth2PasswordRequestForm.

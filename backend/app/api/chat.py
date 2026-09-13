@@ -30,6 +30,16 @@ router = APIRouter()
 
 class ChatRequest(BaseModel):
     question: str
+    
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "question": "Why is the workflow delayed?"
+                }
+            ]
+        }
+    }
 
 
 # =========================================================
@@ -158,7 +168,15 @@ def _build_citations(
 # =========================================================
 
 @router.post(
-    "/"
+    "/",
+    summary="Ask CognitiveOps AI",
+    description="Ask a question about your operational workflows and Jira tickets. The AI will provide an evidence-grounded answer.",
+    responses={
+        200: {"description": "Successfully generated an AI response."},
+        401: {"description": "Not authenticated."},
+        429: {"description": "LLM API Rate limit exceeded."},
+        500: {"description": "Internal error processing the chat."}
+    }
 )
 async def chat(
     request: ChatRequest,

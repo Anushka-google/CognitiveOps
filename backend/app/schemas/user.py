@@ -8,14 +8,46 @@ class UserCreate(BaseModel):
     email: EmailStr
     password: str
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "email": "admin@cognitiveops.io",
+                    "password": "securepassword123!"
+                }
+            ]
+        }
+    }
+
 class UserResponse(BaseModel):
     id: int
     email: EmailStr
     is_active: bool
 
-    class Config:
-        from_attributes = True
+    model_config = {
+        "from_attributes": True,
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "id": 1,
+                    "email": "admin@cognitiveops.io",
+                    "is_active": True
+                }
+            ]
+        }
+    }
 
 class Token(BaseModel):
     access_token: str
     token_type: str
+
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+                    "token_type": "bearer"
+                }
+            ]
+        }
+    }

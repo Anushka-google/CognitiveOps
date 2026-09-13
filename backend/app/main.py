@@ -66,19 +66,69 @@ logger = logging.getLogger(
 
 
 # =========================================================
+# OPENAPI / SWAGGER METADATA
+# =========================================================
+tags_metadata = [
+    {
+        "name": "Auth",
+        "description": "Operations with users and authentication. Includes **Login** and **Signup**.",
+    },
+    {
+        "name": "Workflow",
+        "description": "Workflow analysis, root cause graphs, and executive summaries.",
+    },
+    {
+        "name": "Chat",
+        "description": "AI-powered chat for querying operational evidence.",
+    },
+    {
+        "name": "Risk",
+        "description": "Risk scoring and assessment endpoints.",
+    },
+    {
+        "name": "Executions",
+        "description": "Manage automated executions, approvals, and statistics.",
+    },
+    {
+        "name": "Jira",
+        "description": "Jira diagnostics, environment checking, and API testing.",
+    },
+    {
+        "name": "Slack",
+        "description": "Slack integration status and endpoints.",
+    },
+    {
+        "name": "Reports",
+        "description": "Generate and export reports (e.g. CSV analytics).",
+    },
+]
+
+# =========================================================
 # APPLICATION
 # =========================================================
 
 app = FastAPI(
 
-    title="CognitiveOps",
+    title="CognitiveOps API",
 
     description=(
-        "AI Process Intelligence "
-        "and Agentic Workflow Automation"
+        "## AI Process Intelligence and Agentic Workflow Automation\n"
+        "Welcome to the CognitiveOps backend API documentation.\n"
+        "\n"
+        "### Authentication\n"
+        "To use the protected endpoints, click the **Authorize** button and log in "
+        "with your email and password. This will provide a JWT token used for subsequent requests."
     ),
 
-    version="1.0.0"
+    version="1.0.0",
+    
+    openapi_tags=tags_metadata,
+    
+    contact={
+        "name": "CognitiveOps Support",
+        "url": "http://cognitiveops.io/support",
+        "email": "support@cognitiveops.io",
+    },
 )
 
 
