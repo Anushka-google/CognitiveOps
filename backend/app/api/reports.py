@@ -11,11 +11,26 @@ from app.services.jira_service import JiraService
 from app.services.risk_scoring_service import RiskScoringService
 from app.services.executive_intelligence_service import ExecutiveIntelligenceService
 
+from app.services.spark_analytics_service import SparkAnalyticsService
+
 router = APIRouter()
 
 @router.get("/status")
 def reports_status():
     return {"message": "Reports API is reachable."}
+
+@router.get(
+    "/spark-insights",
+    summary="Big Data Spark Aggregations",
+    description="Triggers a PySpark job to calculate team SLA and bottleneck aggregations."
+)
+def get_spark_insights():
+    try:
+        spark_service = SparkAnalyticsService()
+        results = spark_service.run_workflow_aggregation()
+        return {"success": True, "data": results}
+    except Exception as e:
+        return {"success": False, "error": str(e)}
 
 @router.get(
     "/analytics/dashboard",
