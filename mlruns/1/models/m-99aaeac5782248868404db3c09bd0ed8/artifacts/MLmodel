@@ -1,0 +1,22 @@
+artifact_path: file:C:/Users/anush/OneDrive/Desktop/Startup/cogOps/mlruns/1/models/m-99aaeac5782248868404db3c09bd0ed8/artifacts
+flavors:
+  python_function:
+    data: model.ubj
+    env:
+      conda: conda.yaml
+      virtualenv: python_env.yaml
+    loader_module: mlflow.xgboost
+    python_version: 3.13.4
+  xgboost:
+    code: null
+    data: model.ubj
+    model_class: xgboost.sklearn.XGBClassifier
+    model_format: ubj
+    xgb_version: 3.1.2
+mlflow_version: 3.16.0
+model_id: m-99aaeac5782248868404db3c09bd0ed8
+model_size_bytes: 116878
+model_uuid: m-99aaeac5782248868404db3c09bd0ed8
+prompts: null
+run_id: 6b774ae21aac43f997e970c99eeb6077
+utc_time_created: '2026-09-13 20:20:26.384013'

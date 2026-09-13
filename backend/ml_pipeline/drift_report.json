@@ -1,0 +1,40 @@
+{
+    "drift_detected": true,
+    "features": {
+        "customer_tenure_months": {
+            "ks_statistic": 0.0,
+            "p_value": 1.0,
+            "is_drifting": false
+        },
+        "contract_value_gbp": {
+            "ks_statistic": 0.0,
+            "p_value": 1.0,
+            "is_drifting": false
+        },
+        "message_length": {
+            "ks_statistic": 0.0,
+            "p_value": 1.0,
+            "is_drifting": false
+        },
+        "agent_queue_length_at_submit": {
+            "ks_statistic": 0.0,
+            "p_value": 1.0,
+            "is_drifting": false
+        },
+        "backlog_age_hours": {
+            "ks_statistic": 0.2778666666666666,
+            "p_value": 0.0,
+            "is_drifting": true
+        },
+        "first_response_minutes": {
+            "ks_statistic": 0.6944666666666667,
+            "p_value": 0.0,
+            "is_drifting": true
+        },
+        "resolution_hours": {
+            "ks_statistic": 0.0,
+            "p_value": 1.0,
+            "is_drifting": false
+        }
+    }
+}
