@@ -1,5 +1,5 @@
 import { useState, useEffect } from "react";
-import { getAnalyticsDashboard } from "../services/reportsApi";
+import { getAnalyticsDashboard, downloadCsvExport } from "../services/reportsApi";
 import { Line } from "react-chartjs-2";
 import {
   Chart as ChartJS,
@@ -28,6 +28,7 @@ ChartJS.register(
 function AnalyticsDashboard() {
   const [metrics, setMetrics] = useState(null);
   const [loading, setLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState("");
 
   useEffect(() => {
     async function loadData() {
@@ -42,6 +43,18 @@ function AnalyticsDashboard() {
     }
     loadData();
   }, []);
+
+  const handleExport = async (type) => {
+    setIsExporting(type);
+    try {
+      await downloadCsvExport(type);
+    } catch (err) {
+      console.error(`Failed to export ${type}`, err);
+      alert(`Error exporting ${type} CSV`);
+    } finally {
+      setIsExporting("");
+    }
+  };
 
   if (loading) {
     return <div className="analytics-loading">Loading Historical Analytics...</div>;
@@ -121,6 +134,26 @@ function AnalyticsDashboard() {
 
   return (
     <div className="analytics-container">
+      
+      {/* EXPORT DATA CENTER */}
+      <div className="export-center">
+        <h3>Export Data (CSV)</h3>
+        <div className="export-buttons">
+          <button className="export-btn" onClick={() => handleExport('workflows')} disabled={isExporting !== ""}>
+            {isExporting === 'workflows' ? "Exporting..." : "↓ Workflows"}
+          </button>
+          <button className="export-btn" onClick={() => handleExport('risks')} disabled={isExporting !== ""}>
+            {isExporting === 'risks' ? "Exporting..." : "↓ Risks"}
+          </button>
+          <button className="export-btn" onClick={() => handleExport('insights')} disabled={isExporting !== ""}>
+            {isExporting === 'insights' ? "Exporting..." : "↓ Insights"}
+          </button>
+          <button className="export-btn" onClick={() => handleExport('recommendations')} disabled={isExporting !== ""}>
+            {isExporting === 'recommendations' ? "Exporting..." : "↓ Recommendations"}
+          </button>
+        </div>
+      </div>
+
       <div className="metrics-grid">
         <MetricCard title="Avg Duration" data={metrics.duration} inverted={true} />
         <MetricCard title="Active Bottlenecks" data={metrics.bottlenecks} inverted={true} />
