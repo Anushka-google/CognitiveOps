@@ -17,7 +17,7 @@ router = APIRouter()
 
 
 @router.get(
-    "/risk"
+    "/"
 )
 def get_risk_scores():
 

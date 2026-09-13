@@ -158,7 +158,7 @@ def _build_citations(
 # =========================================================
 
 @router.post(
-    "/chat"
+    "/"
 )
 async def chat(
     request: ChatRequest,

@@ -59,160 +59,12 @@ class ApprovalRequest(BaseModel):
 
 
 # =========================================================
-# JIRA DEBUG
-# =========================================================
-
-@router.get(
-    "/jira/debug"
-)
-def jira_debug():
-
-    return {
-
-        "base_url":
-            os.getenv(
-                "JIRA_BASE_URL"
-            ),
-
-        "email":
-            os.getenv(
-                "JIRA_EMAIL"
-            ),
-
-        "project":
-            os.getenv(
-                "JIRA_PROJECT_KEY"
-            ),
-
-        "token_exists":
-            bool(
-                os.getenv(
-                    "JIRA_API_TOKEN"
-                )
-            )
-    }
-
-
-# =========================================================
-# JIRA TEST
-# =========================================================
-
-@router.get(
-    "/jira/test"
-)
-def test_jira():
-
-    try:
-
-        jira_service = JiraService()
-
-        tickets = (
-            jira_service
-            .get_workflow_records()
-        )
-
-        return tickets
-
-    except Exception as e:
-
-        return {
-            "error": str(e)
-        }
-
-
-# =========================================================
-# JIRA PROJECT CHECK
-# =========================================================
-
-@router.get(
-    "/jira/project-check"
-)
-def jira_project_check():
-
-    try:
-
-        jira_service = JiraService()
-
-        return (
-            jira_service
-            .check_project()
-        )
-
-    except Exception as e:
-
-        return {
-            "error": str(e)
-        }
-
-
-# =========================================================
-# JIRA IDENTITY CHECK
-# =========================================================
-
-@router.get(
-    "/jira/identity-check"
-)
-def jira_identity_check():
-
-    try:
-
-        jira_service = JiraService()
-
-        return (
-            jira_service
-            .check_identity()
-        )
-
-    except Exception as e:
-
-        return {
-            "error": str(e)
-        }
-
-
-# =========================================================
-# ENVIRONMENT CHECK
-# =========================================================
-
-@router.get(
-    "/jira/env-check"
-)
-def env_check():
-
-    return {
-
-        "base_url":
-            os.getenv(
-                "JIRA_BASE_URL"
-            ),
-
-        "email_exists":
-            bool(
-                os.getenv(
-                    "JIRA_EMAIL"
-                )
-            ),
-
-        "token_exists":
-            bool(
-                os.getenv(
-                    "JIRA_API_TOKEN"
-                )
-            ),
-
-        "project_key":
-            os.getenv(
-                "JIRA_PROJECT_KEY"
-            )
-    }
-
-
 # =========================================================
 # WORKFLOW ANALYSIS
 # =========================================================
 
 @router.post(
-    "/workflow/analyze"
+    "/analyze"
 )
 def analyze_workflow():
 
@@ -254,7 +106,7 @@ def analyze_workflow():
 # =========================================================
 
 @router.get(
-    "/workflow/root-cause-graph"
+    "/root-cause-graph"
 )
 def get_root_cause_graph():
 
@@ -308,7 +160,7 @@ def get_root_cause_graph():
 # =========================================================
 
 @router.get(
-    "/workflow/executive-summary"
+    "/executive-summary"
 )
 def get_executive_summary():
 
@@ -431,7 +283,7 @@ def get_executive_summary():
 # =========================================================
 
 @router.get(
-    "/workflow/trend-forecast"
+    "/trend-forecast"
 )
 def get_trend_forecast():
 
@@ -445,7 +297,7 @@ def get_trend_forecast():
 # =========================================================
 
 @router.post(
-    "/workflow/approval"
+    "/approval"
 )
 def workflow_approval(
     request: ApprovalRequest

@@ -31,6 +31,15 @@ from app.api.chat import (
 from app.api.auth import (
     router as auth_router
 )
+from app.api.jira import (
+    router as jira_router
+)
+from app.api.slack import (
+    router as slack_router
+)
+from app.api.reports import (
+    router as reports_router
+)
 
 
 
@@ -102,32 +111,44 @@ app.add_middleware(
 # =========================================================
 
 app.include_router(
-
-    workflow_router,
-
-    prefix="/api"
-)
-
-
-app.include_router(
-
-    execution_router,
-
-    prefix="/api"
-)
-app.include_router(
-    risk_router,
-    prefix="/api"
-)
-app.include_router(
-    chat_router,
-    prefix="/api"
-)
-
-app.include_router(
     auth_router,
     prefix="/api/auth",
     tags=["Auth"]
+)
+app.include_router(
+    workflow_router,
+    prefix="/api/workflow",
+    tags=["Workflow"]
+)
+app.include_router(
+    chat_router,
+    prefix="/api/chat",
+    tags=["Chat"]
+)
+app.include_router(
+    risk_router,
+    prefix="/api/risk",
+    tags=["Risk"]
+)
+app.include_router(
+    execution_router,
+    prefix="/api/executions",
+    tags=["Executions"]
+)
+app.include_router(
+    jira_router,
+    prefix="/api/jira",
+    tags=["Jira"]
+)
+app.include_router(
+    slack_router,
+    prefix="/api/slack",
+    tags=["Slack"]
+)
+app.include_router(
+    reports_router,
+    prefix="/api/reports",
+    tags=["Reports"]
 )
 
 

@@ -36,7 +36,7 @@ logger = logging.getLogger(__name__)
 # ==========================================
 
 router = APIRouter(
-    prefix="/executions",
+    
     tags=["Executions"]
 )
 
