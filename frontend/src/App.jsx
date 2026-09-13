@@ -41,6 +41,7 @@ import ApprovalPanel from "./components/ApprovalPanel";
 import Login from "./pages/Login";
 import Integrations from "./pages/Integrations";
 import AnalyticsDashboard from "./components/AnalyticsDashboard";
+import SparkInsights from "./components/SparkInsights";
 import { useAuth } from "./context/AuthContext";
 
 import "./pages/Dashboard.css";
@@ -917,6 +918,7 @@ if (location.pathname === "/workflow") {
 
           <div style={{ marginBottom: '32px' }}>
              <AnalyticsDashboard />
+             <SparkInsights />
           </div>
 
           <div

@@ -3,6 +3,12 @@ from pyspark.sql.types import StructType, StructField, StringType, IntegerType
 from pyspark.sql.functions import col, when, avg, count
 import json
 import logging
+import os
+import sys
+
+# Crucial fix for Windows Spark Workers:
+os.environ["PYSPARK_PYTHON"] = sys.executable
+os.environ["PYSPARK_DRIVER_PYTHON"] = sys.executable
 
 logger = logging.getLogger(__name__)
 
