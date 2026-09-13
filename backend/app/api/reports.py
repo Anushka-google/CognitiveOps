@@ -62,12 +62,14 @@ def export_risks():
         risk_service = RiskScoringService()
         jira_service = JiraService()
         tickets = jira_service.get_workflow_records()
-        risks = risk_service.get_risk_scores(tickets)
-    except Exception:
+        risk_data = risk_service.calculate(tickets)
+        risks = risk_data.get("tickets", [])
+    except Exception as e:
+        print(f"Error exporting risks: {e}")
         risks = []
         
-    headers = ["Ticket ID", "Risk Score", "Risk Level", "Factors"]
-    rows = [[r.ticket_id, r.score, r.risk_level, ", ".join(r.factors)] for r in risks]
+    headers = ["Ticket ID", "Risk Score", "Risk Level", "Recommendation"]
+    rows = [[r.get("ticket_id", ""), r.get("risk_score", ""), r.get("risk_level", ""), r.get("recommendation", "")] for r in risks]
     
     return _create_csv_response("risks", headers, rows)
 
@@ -75,15 +77,23 @@ def export_risks():
 @router.get("/export/insights")
 def export_insights():
     try:
+        jira_service = JiraService()
+        tickets = jira_service.get_workflow_records()
+        
         exec_service = ExecutiveIntelligenceService()
-        # Passing an empty list just to trigger the mock summary for the export
-        summary = exec_service.generate_executive_summary([]) 
-        insights = summary.get("insights", [])
-    except Exception:
+        summary = exec_service.generate_summary(
+            workflows=tickets,
+            root_cause_graph={"nodes": [], "edges": [], "root_causes": []},
+            sla_prediction={},
+            workflow_health="Unknown"
+        ) 
+        insights = summary.get("why", [])
+    except Exception as e:
+        print(f"Error exporting insights: {e}")
         insights = []
         
-    headers = ["Category", "Insight Description", "Severity"]
-    rows = [[i.get("category", "General"), i.get("description", ""), i.get("severity", "medium")] for i in insights]
+    headers = ["Insight Type", "Description"]
+    rows = [["Root Cause / Insight", str(i)] for i in insights]
     
     return _create_csv_response("insights", headers, rows)
 
@@ -91,14 +101,23 @@ def export_insights():
 @router.get("/export/recommendations")
 def export_recommendations():
     try:
+        jira_service = JiraService()
+        tickets = jira_service.get_workflow_records()
+        
         exec_service = ExecutiveIntelligenceService()
-        summary = exec_service.generate_executive_summary([]) 
-        recommendations = summary.get("recommendations", [])
-    except Exception:
+        summary = exec_service.generate_summary(
+            workflows=tickets,
+            root_cause_graph={"nodes": [], "edges": [], "root_causes": []},
+            sla_prediction={},
+            workflow_health="Unknown"
+        ) 
+        recommendations = summary.get("what_should_we_do", [])
+    except Exception as e:
+        print(f"Error exporting recommendations: {e}")
         recommendations = []
         
-    headers = ["Action Item", "Expected Impact", "Effort"]
-    rows = [[r.get("action", ""), r.get("impact", ""), r.get("effort", "")] for r in recommendations]
+    headers = ["Action Item", "Description"]
+    rows = [["Recommended Action", str(r)] for r in recommendations]
     
     return _create_csv_response("recommendations", headers, rows)
 
