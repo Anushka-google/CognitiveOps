@@ -20,3 +20,5 @@ httpx
 tensorflow
 sentence-transformers
 google-genai
+xgboost
+lightgbm
