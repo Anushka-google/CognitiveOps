@@ -1,0 +1,33 @@
+# Render Blueprint (Infrastructure as Code)
+# Deploy via https://dashboard.render.com/blueprints
+services:
+  # Backend FastAPI Service
+  - type: web
+    name: cognitive-ops-backend
+    env: docker
+    region: ohio
+    plan: starter
+    rootDir: backend
+    healthCheckPath: /api/reports/status
+    envVars:
+      - key: PORT
+        value: 8000
+      - key: DATABASE_URL
+        sync: false # Set securely in Render Dashboard
+      - key: GEMINI_API_KEY
+        sync: false # Set securely in Render Dashboard
+
+  # Frontend React Service
+  - type: web
+    name: cognitive-ops-frontend
+    env: docker
+    region: ohio
+    plan: starter
+    rootDir: frontend
+    healthCheckPath: /
+    envVars:
+      - key: VITE_API_URL
+        fromService:
+          type: web
+          name: cognitive-ops-backend
+          envVarKey: RENDER_EXTERNAL_URL

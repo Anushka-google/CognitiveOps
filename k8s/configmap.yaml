@@ -1,0 +1,16 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cognitive-ops-config
+data:
+  PORT: "8000"
+---
+apiVersion: v1
+kind: Secret
+metadata:
+  name: cognitive-ops-secrets
+type: Opaque
+data:
+  # Base64 encoded values. E.g., echo -n "your_db_url" | base64
+  DATABASE_URL: "base64_encoded_url_here"
+  GEMINI_API_KEY: "base64_encoded_api_key_here"

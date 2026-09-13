@@ -8,10 +8,23 @@ from functools import wraps
 
 
 # =========================================================
-# Logger
+# Logger (Phase 8.6 Structured Logging)
 # =========================================================
+import json
+
+try:
+    from pythonjsonlogger import jsonlogger
+    HAS_JSON_LOGGER = True
+except ImportError:
+    HAS_JSON_LOGGER = False
 
 logger = logging.getLogger(__name__)
+if HAS_JSON_LOGGER:
+    logHandler = logging.StreamHandler()
+    formatter = jsonlogger.JsonFormatter('%(asctime)s %(levelname)s %(message)s')
+    logHandler.setFormatter(formatter)
+    logger.addHandler(logHandler)
+    logger.propagate = False
 
 
 # =========================================================
