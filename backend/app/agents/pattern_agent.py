@@ -6,7 +6,7 @@ from app.agents.state import AgentState
 from app.services.workflow_analyzer import (
     WorkflowAnalyzer
 )
-
+from app.services.nlp_service import nlp_service
 
 logger = logging.getLogger(__name__)
 
