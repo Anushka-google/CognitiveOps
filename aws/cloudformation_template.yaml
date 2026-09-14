@@ -1,0 +1,127 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Phase 14: CognitiveOps Cloud Infrastructure (EC2, S3, IAM, CloudWatch)'
+
+Parameters:
+  InstanceType:
+    Type: String
+    Default: t3.medium
+    Description: EC2 instance type for CognitiveOps Backend
+  KeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: SSH Key Pair for EC2 Access
+
+Resources:
+  # ----------------------------------------------------
+  # Phase 14.1: S3 Bucket (Datasets & Models)
+  # ----------------------------------------------------
+  CognitiveOpsS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: !Sub 'cognitiveops-data-${AWS::AccountId}-${AWS::Region}'
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+
+  # ----------------------------------------------------
+  # Phase 14.4: IAM Roles & Least Privilege
+  # ----------------------------------------------------
+  EC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: ec2.amazonaws.com
+            Action: sts:AssumeRole
+      Policies:
+        - PolicyName: CognitiveOpsS3Access
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - s3:PutObject
+                  - s3:GetObject
+                  - s3:ListBucket
+                Resource:
+                  - !GetAtt CognitiveOpsS3Bucket.Arn
+                  - !Sub '${CognitiveOpsS3Bucket.Arn}/*'
+        - PolicyName: CloudWatchAgentPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                  - cloudwatch:PutMetricData
+                Resource: '*'
+
+  EC2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Roles:
+        - !Ref EC2InstanceRole
+
+  # ----------------------------------------------------
+  # Security Group (Firewall)
+  # ----------------------------------------------------
+  CognitiveOpsSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Allow HTTP and SSH
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 8000
+          ToPort: 8000
+          CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+
+  # ----------------------------------------------------
+  # Phase 14.2 & 14.5: EC2 Compute & CloudWatch
+  # ----------------------------------------------------
+  CognitiveOpsEC2Instance:
+    Type: AWS::EC2::Instance
+    Properties:
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      IamInstanceProfile: !Ref EC2InstanceProfile
+      SecurityGroupIds:
+        - !Ref CognitiveOpsSecurityGroup
+      ImageId: ami-0c55b159cbfafe1f0 # Amazon Linux 2 AMI
+      UserData:
+        Fn::Base64: !Sub |
+          #!/bin/bash
+          yum update -y
+          yum install -y docker git
+          systemctl start docker
+          systemctl enable docker
+          usermod -aG docker ec2-user
+          
+          # Install CloudWatch Agent (Phase 14.5)
+          yum install -y amazon-cloudwatch-agent
+          /opt/aws/amazon-cloudwatch-agent/bin/amazon-cloudwatch-agent-ctl -a fetch-config -m ec2 -c default -s
+          
+          # Clone and Start CognitiveOps Backend
+          su - ec2-user -c "git clone https://github.com/Anushka-google/CognitiveOps.git"
+          su - ec2-user -c "cd CognitiveOps && docker-compose up -d"
+
+Outputs:
+  S3BucketName:
+    Description: The name of the S3 bucket for Datasets
+    Value: !Ref CognitiveOpsS3Bucket
+  EC2PublicIP:
+    Description: Public IP address of the CognitiveOps Backend
+    Value: !GetAtt CognitiveOpsEC2Instance.PublicIp
