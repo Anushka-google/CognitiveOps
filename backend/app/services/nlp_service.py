@@ -1,6 +1,4 @@
 import logging
-from transformers import pipeline, AutoTokenizer
-import torch
 import gc
 
 logger = logging.getLogger(__name__)
@@ -15,6 +13,11 @@ class NLPService:
 
     def tokenize_text(self, text: str):
         """Phase 13.1: Fundamental NLP Tokenization"""
+        try:
+            from transformers import AutoTokenizer
+        except ImportError:
+            return text.split() # Fallback if transformers isn't installed
+            
         if self.tokenizer is None:
             # Using distilbert tokenizer (very lightweight)
             self.tokenizer = AutoTokenizer.from_pretrained("distilbert-base-uncased")
@@ -24,6 +27,11 @@ class NLPService:
 
     def classify_workflow(self, text: str) -> str:
         """Phase 13.3: BERT Workflow Classification"""
+        try:
+            from transformers import pipeline
+        except ImportError:
+            return "UNKNOWN" # Fallback if ML isn't installed
+            
         if self.classifier is None:
             # Using distilbert for zero-shot classification (very light on RAM, perfect for i3 8GB)
             self.classifier = pipeline(
@@ -45,8 +53,11 @@ class NLPService:
 
     def summarize_workflow(self, text: str) -> str:
         """Phase 13.6: Transformer-Based Summarization"""
-        from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
-        
+        try:
+            from transformers import AutoModelForSeq2SeqLM, AutoTokenizer
+        except ImportError:
+            return "Summarization requires transformers library, which is disabled in this environment."
+            
         if self.summarizer is None:
             # t5-small is tiny (240MB) and runs fast on i3 CPUs
             self.summarizer = AutoModelForSeq2SeqLM.from_pretrained("t5-small")

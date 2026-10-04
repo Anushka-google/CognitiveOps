@@ -2,7 +2,6 @@ from pathlib import Path
 
 import joblib
 import numpy as np
-import tensorflow as tf
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -32,15 +31,23 @@ FEATURE_COLUMNS = [
 class SLAPredictor:
 
     def __init__(self):
-        self.model = tf.keras.models.load_model(
-            MODEL_PATH
-        )
+        try:
+            import tensorflow as tf
+            self.model = tf.keras.models.load_model(MODEL_PATH)
+        except ImportError:
+            self.model = None
 
-        self.scaler = joblib.load(
-            SCALER_PATH
-        )
+        try:
+            self.scaler = joblib.load(SCALER_PATH)
+        except Exception:
+            self.scaler = None
 
     def predict(self, features: dict):
+        if self.model is None or self.scaler is None:
+            return {
+                "sla_breach_probability": 0.0,
+                "risk_level": "Unknown (ML Disabled)",
+            }
 
         values = [
             float(features.get(column, 0))
