@@ -21,3 +21,4 @@ boto3
 PyJWT
 passlib
 bcrypt
+email-validator
