@@ -16,3 +16,5 @@ uploads/
 sample_data/
 sample.txt
 test_*.py
+!backend/tests/
+!backend/tests/test_*.py
