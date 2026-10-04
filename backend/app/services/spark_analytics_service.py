@@ -1,4 +1,4 @@
-from pyspark.sql.functions import col, when, avg, count, trim, lower, initcap, regexp_replace, round, sum as spark_sum
+# PySpark imports moved inside methods for lazy loading
 import json
 import logging
 import os
@@ -19,7 +19,11 @@ class SparkAnalyticsService:
     @classmethod
     def get_spark_session(cls):
         if cls._spark_session is None:
-            from pyspark.sql import SparkSession
+            try:
+                from pyspark.sql import SparkSession
+            except ImportError:
+                return None
+                
             logger.info("Initializing PySpark Session...")
             cls._spark_session = SparkSession.builder \
                 .appName("CognitiveOps-BigData-Analytics") \
@@ -33,6 +37,11 @@ class SparkAnalyticsService:
         """
         Executes Phase 7 End-to-End: Extract -> Clean -> Transform -> Aggregate -> Load
         """
+        try:
+            from pyspark.sql.functions import col, when, avg, count, trim, lower, initcap, regexp_replace, round, sum as spark_sum
+        except ImportError:
+            return {"status": "error", "message": "PySpark is disabled in this environment to save memory."}
+            
         spark = self.get_spark_session()
         jira_service = JiraService()
         
