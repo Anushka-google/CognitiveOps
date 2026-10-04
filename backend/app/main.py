@@ -213,7 +213,13 @@ from app.models.analytics import AnalyticsSnapshot
 from app.models.etl_results import ETLAnalyticsResult
 
 # Create tables if they don't exist
-Base.metadata.create_all(bind=engine)
+try:
+    logger.info("Attempting to connect to database and create tables...")
+    Base.metadata.create_all(bind=engine)
+    logger.info("Database tables verified.")
+except Exception as e:
+    logger.error(f"Database connection failed on startup: {e}")
+    logger.warning("Starting API without database connection. Some endpoints may fail.")
 
 @app.get("/")
 def root():
