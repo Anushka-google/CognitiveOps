@@ -1,4 +1,5 @@
 from app.services.vector_store import search_chunks
+from app.services.hybrid_search_service import HybridSearchService
 
 
 class RetrievalService:
@@ -9,12 +10,46 @@ class RetrievalService:
         n_results: int = 5,
         filters=None,
         distance_threshold: float = 1.5,
-        min_evidence: int = 1
+        min_evidence: int = 1,
+        use_hybrid: bool = True
     ):
         if not query or not query.strip():
             return self._empty_response(
                 reason="empty_query"
             )
+
+        if use_hybrid:
+            try:
+                hybrid_service = HybridSearchService()
+                hybrid_hits = hybrid_service.hybrid_search(
+                    query=query,
+                    n_results=n_results,
+                    filters=filters
+                )
+                if hybrid_hits:
+                    evidence = []
+                    for item in hybrid_hits:
+                        dist = item.get("distance", 0.0)
+                        evidence.append({
+                            "document": item.get("document", ""),
+                            "metadata": item.get("metadata", {}),
+                            "distance": dist,
+                            "source_type": item.get("source_type", "hybrid"),
+                            "rerank_score": item.get("final_rerank_score")
+                        })
+                    
+                    conflict_detected = self._detect_conflicts(evidence)
+                    status = "conflicting_evidence" if conflict_detected else ("reliable" if len(evidence) >= min_evidence else "insufficient_evidence")
+                    return {
+                        "status": status,
+                        "reason": "conflicting_evidence" if conflict_detected else None,
+                        "evidence_count": len(evidence),
+                        "conflict_detected": conflict_detected,
+                        "results": evidence,
+                        "mode": "hybrid_bm25_dense"
+                    }
+            except Exception:
+                pass  # Fallback gracefully to dense search
 
         results = search_chunks(
             query=query,
