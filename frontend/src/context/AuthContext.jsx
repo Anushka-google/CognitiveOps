@@ -5,6 +5,8 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 // across the entire component tree without having to pass props down manually (prop drilling).
 // This is essential for authentication state since many components need to know if a user is logged in.
 
+import { API_URL } from '../services/apiConfig';
+
 const AuthContext = createContext();
 
 export const useAuth = () => useContext(AuthContext);
@@ -29,7 +31,7 @@ export const AuthProvider = ({ children }) => {
         // Concept for Interview: OAuth2 Form Data format requirement
         // Notice we are sending URLSearchParams, not a JSON payload.
         // This is mandated by the OAuth2 spec for password credentials.
-        const response = await fetch('http://localhost:8000/api/auth/login', {
+        const response = await fetch(`${API_URL}/api/auth/login`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
             body: new URLSearchParams({
@@ -49,7 +51,7 @@ export const AuthProvider = ({ children }) => {
     };
 
     const signup = async (email, password) => {
-        const response = await fetch('http://localhost:8000/api/auth/signup', {
+        const response = await fetch(`${API_URL}/api/auth/signup`, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ email, password }),

@@ -1,7 +1,7 @@
 import { useState } from "react";
 import "./SparkInsights.css";
 
-const API_URL = import.meta.env.VITE_API_URL;
+import { API_URL } from "../services/apiConfig";
 
 function SparkInsights() {
   const [data, setData] = useState(null);
