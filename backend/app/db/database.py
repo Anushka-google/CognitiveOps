@@ -15,6 +15,9 @@ load_dotenv()
 DATABASE_URL = os.getenv("DATABASE_URL")
 if not DATABASE_URL:
     DATABASE_URL = "sqlite:///./cognitiveops.db"
+elif DATABASE_URL.startswith("postgres://"):
+    # SQLAlchemy 2.0 strictly requires postgresql:// instead of legacy postgres://
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
 # ==========================================
 # Database Engine

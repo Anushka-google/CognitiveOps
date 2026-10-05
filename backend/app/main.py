@@ -160,6 +160,17 @@ app.add_middleware(
 )
 
 
+@app.exception_handler(Exception)
+async def global_exception_handler(request, exc):
+    import traceback
+    logger.error(f"UNHANDLED EXCEPTION on {request.url.path}: {exc}\n{traceback.format_exc()}")
+    from fastapi.responses import JSONResponse
+    return JSONResponse(
+        status_code=500,
+        content={"detail": f"Server Error: {str(exc)}", "type": exc.__class__.__name__}
+    )
+
+
 # =========================================================
 # ROUTERS
 # =========================================================
@@ -228,12 +239,22 @@ except Exception as e:
 
 @app.get("/")
 def root():
-
     return {
+        "message": "CognitiveOps API is running."
+    }
 
-        "message":
-            "CognitiveOps API is running."
-
+@app.get("/health")
+def health_check():
+    db_status = "ok"
+    try:
+        from sqlalchemy import text
+        with engine.connect() as conn:
+            conn.execute(text("SELECT 1"))
+    except Exception as e:
+        db_status = f"error: {str(e)}"
+    return {
+        "status": "healthy" if db_status == "ok" else "degraded",
+        "database": db_status
     }
 
 
