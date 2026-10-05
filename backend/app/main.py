@@ -211,6 +211,7 @@ app.include_router(
 # =========================================================
 
 from app.db.database import engine, Base
+from app.models.user import User
 from app.models.insight import Insight
 from app.models.workflow import WorkflowRecord
 from app.models.analytics import AnalyticsSnapshot

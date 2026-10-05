@@ -28,7 +28,21 @@ def signup(user_in: UserCreate, db: Session = Depends(get_db)):
     We check if the email exists to enforce unique constraints at the application level 
     before trying to insert to avoid raw Database IntegrityErrors.
     """
-    user = db.query(User).filter(User.email == user_in.email).first()
+    try:
+        user = db.query(User).filter(User.email == user_in.email).first()
+    except Exception as e:
+        # If the users table does not exist yet on serverless Postgres, create it dynamically
+        try:
+            from app.db.database import engine, Base
+            Base.metadata.create_all(bind=engine)
+            db.rollback()
+            user = db.query(User).filter(User.email == user_in.email).first()
+        except Exception as inner_e:
+            raise HTTPException(
+                status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail=f"Database initialization error: {str(inner_e)}"
+            )
+
     if user:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
@@ -41,8 +55,15 @@ def signup(user_in: UserCreate, db: Session = Depends(get_db)):
         hashed_password=hashed_password
     )
     db.add(db_user)
-    db.commit()
-    db.refresh(db_user)
+    try:
+        db.commit()
+        db.refresh(db_user)
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Failed to create user: {str(e)}"
+        )
     return db_user
 
 @router.post(
@@ -62,7 +83,14 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     OAuth2 spec specifically requires password credentials to be sent as form data 
     (application/x-www-form-urlencoded), not JSON. This is why we use OAuth2PasswordRequestForm.
     """
-    user = db.query(User).filter(User.email == form_data.username).first()
+    try:
+        user = db.query(User).filter(User.email == form_data.username).first()
+    except Exception:
+        from app.db.database import engine, Base
+        Base.metadata.create_all(bind=engine)
+        db.rollback()
+        user = db.query(User).filter(User.email == form_data.username).first()
+
     if not user or not verify_password(form_data.password, user.hashed_password):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
