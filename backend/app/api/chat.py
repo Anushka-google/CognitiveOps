@@ -168,6 +168,11 @@ def _build_citations(
 # =========================================================
 
 @router.post(
+    "",
+    summary="Ask CognitiveOps AI",
+    include_in_schema=False
+)
+@router.post(
     "/",
     summary="Ask CognitiveOps AI",
     description="Ask a question about your operational workflows and Jira tickets. The AI will provide an evidence-grounded answer.",

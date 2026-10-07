@@ -1,53 +1,154 @@
-.timeline-container {
-  background: #1e293b;
-
-  border: 1px solid #334155;
-
+.pipeline-container {
+  background: linear-gradient(135deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%);
+  border: 1px solid rgba(51, 65, 85, 0.7);
   border-radius: 16px;
-
-  padding: 25px;
-
-  margin-top: 30px;
+  padding: 24px;
+  box-shadow: 0 10px 30px -10px rgba(0, 0, 0, 0.5);
+  backdrop-filter: blur(12px);
+  position: relative;
+  overflow: hidden;
 }
 
-.timeline-container h2 {
-  text-align: center;
-
-  margin-bottom: 25px;
-}
-
-.timeline-step {
+.pipeline-header-info {
   display: flex;
-
+  justify-content: space-between;
   align-items: center;
-
-  gap: 15px;
-
-  margin-bottom: 20px;
+  flex-wrap: wrap;
+  gap: 12px;
+  margin-bottom: 22px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
 }
 
-.timeline-circle {
-  width: 40px;
+.pipeline-pulse-indicator {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+}
 
-  height: 40px;
-
+.pulse-dot {
+  width: 10px;
+  height: 10px;
+  background-color: #10b981;
   border-radius: 50%;
-
-  background: #3b82f6;
-
-  color: white;
-
-  display: flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  font-weight: bold;
+  box-shadow: 0 0 10px #10b981;
+  display: inline-block;
+  animation: pulse-glow 2s infinite ease-in-out;
 }
 
-.timeline-content {
-  font-size: 1rem;
+@keyframes pulse-glow {
+  0%, 100% {
+    transform: scale(0.95);
+    opacity: 0.8;
+  }
+  50% {
+    transform: scale(1.25);
+    opacity: 1;
+  }
+}
 
+.pulse-text {
+  font-size: 0.85rem;
+  font-weight: 600;
+  color: #94a3b8;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.pipeline-runtime-tag {
+  font-size: 0.8rem;
   font-weight: 500;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.1);
+  padding: 4px 10px;
+  border-radius: 999px;
+  border: 1px solid rgba(56, 189, 248, 0.25);
+}
+
+.pipeline-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 16px;
+  position: relative;
+}
+
+.pipeline-card {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(51, 65, 85, 0.8);
+  border-radius: 12px;
+  padding: 18px 16px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  position: relative;
+  transition: transform 0.2s ease, border-color 0.2s ease, box-shadow 0.2s ease;
+}
+
+.pipeline-card:hover {
+  transform: translateY(-3px);
+  border-color: rgba(99, 102, 241, 0.6);
+  box-shadow: 0 8px 20px -6px rgba(99, 102, 241, 0.25);
+}
+
+.pipeline-card-top {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 12px;
+}
+
+.pipeline-step-badge {
+  font-size: 0.75rem;
+  font-weight: 800;
+  color: #6366f1;
+  background: rgba(99, 102, 241, 0.15);
+  padding: 2px 8px;
+  border-radius: 6px;
+  border: 1px solid rgba(99, 102, 241, 0.3);
+}
+
+.pipeline-status-badge {
+  font-size: 0.7rem;
+  font-weight: 600;
+  color: #10b981;
+  background: rgba(16, 185, 129, 0.12);
+  padding: 2px 7px;
+  border-radius: 999px;
+  border: 1px solid rgba(16, 185, 129, 0.25);
+  text-transform: uppercase;
+}
+
+.pipeline-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.pipeline-icon {
+  font-size: 1.5rem;
+  margin-bottom: 2px;
+}
+
+.pipeline-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f1f5f9;
+  margin: 0;
+}
+
+.pipeline-desc {
+  font-size: 0.78rem;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin: 0;
+}
+
+.pipeline-connector-arrow {
+  display: none;
+}
+
+@media (min-width: 1200px) {
+  .pipeline-grid {
+    grid-template-columns: repeat(5, 1fr);
+  }
 }
