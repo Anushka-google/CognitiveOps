@@ -249,23 +249,9 @@ function Dashboard() {
   // AUTHENTICATION & ROUTING
   // =========================================
 
-  if (authLoading) {
-    return (
-      <div className="dashboard-state-screen">
-        <div className="dashboard-loader">
-          <h2>Authenticating...</h2>
-        </div>
-      </div>
-    );
-  }
-
+  // Direct access mode: no login wall required
   if (location.pathname === "/login") {
     return <Login />;
-  }
-
-  if (!token) {
-    window.location.href = "/login";
-    return null;
   }
 
   // =========================================
