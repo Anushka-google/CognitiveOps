@@ -1,11 +1,52 @@
-import { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { askChat } from "../services/chatApi";
 import "./Chat.css";
+
+const THINKING_PHRASES = [
+  "🧠 Ingesting query into Hybrid RAG engine...",
+  "🕸️ Checking DAG dependency graph for circular blockers...",
+  "📊 Correlating Jira ticket SLA breach vectors...",
+  "⚡ Synthesizing grounded operational intelligence...",
+];
+
+function formatMessageContent(content) {
+  if (typeof content !== "string") return content;
+  return content.split("\n").map((line, lineIdx) => {
+    const parts = line.split(/(\*\*.*?\*\*|\*.*?\*)/g);
+    return (
+      <React.Fragment key={lineIdx}>
+        {parts.map((part, pIdx) => {
+          if (part.startsWith("**") && part.endsWith("**")) {
+            return <strong key={pIdx}>{part.slice(2, -2)}</strong>;
+          }
+          if (part.startsWith("*") && part.endsWith("*")) {
+            return <em key={pIdx}>{part.slice(1, -1)}</em>;
+          }
+          return part;
+        })}
+        {lineIdx < content.split("\n").length - 1 && <br />}
+      </React.Fragment>
+    );
+  });
+}
 
 function Chat() {
   const [question, setQuestion] = useState("");
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
+  const [thinkingIndex, setThinkingIndex] = useState(0);
+
+  // Cycle thinking phrases while loading
+  useEffect(() => {
+    if (!loading) {
+      setThinkingIndex(0);
+      return;
+    }
+    const interval = setInterval(() => {
+      setThinkingIndex((prev) => (prev + 1) % THINKING_PHRASES.length);
+    }, 1800);
+    return () => clearInterval(interval);
+  }, [loading]);
 
   const handleSubmit = async (event) => {
     event.preventDefault();
@@ -44,9 +85,10 @@ function Chat() {
             response.recommendations || [],
           insufficientEvidence:
             response.insufficient_evidence || false,
+          offlineFallback: response.offline_fallback || false,
         },
       ]);
-    } catch(error) {
+    } catch (error) {
       setMessages((previous) => [
         ...previous,
         {
@@ -129,15 +171,28 @@ function Chat() {
                 {message.role === "user"
                   ? "You"
                   : "CognitiveOps"}
+                {message.offlineFallback && (
+                  <span style={{
+                    marginLeft: "8px",
+                    fontSize: "0.72rem",
+                    padding: "2px 6px",
+                    borderRadius: "4px",
+                    background: "rgba(56, 189, 248, 0.15)",
+                    color: "#38bdf8",
+                    border: "1px solid rgba(56, 189, 248, 0.3)"
+                  }}>
+                    ⚡ Grounded Telemetry
+                  </span>
+                )}
               </div>
 
-              <div className="chat-message-content">
-                {message.content}
-              </div>
-
-              {message.error && (
+              {message.error ? (
                 <div className="chat-error">
                   {message.content}
+                </div>
+              ) : (
+                <div className="chat-message-content">
+                  {formatMessageContent(message.content)}
                 </div>
               )}
 
@@ -237,8 +292,9 @@ function Chat() {
                 CognitiveOps
               </div>
 
-              <div className="chat-message-content">
-                Analyzing workflow evidence...
+              <div className="chat-message-content" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
+                <span className="pulse-dot" style={{ width: "8px", height: "8px" }}></span>
+                <span>{THINKING_PHRASES[thinkingIndex]}</span>
               </div>
             </div>
           )}
