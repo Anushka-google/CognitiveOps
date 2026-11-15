@@ -1,0 +1,197 @@
+.root-cause-graph {
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(51, 65, 85, 0.7);
+  border-radius: 16px;
+  padding: 24px;
+  backdrop-filter: blur(12px);
+}
+
+.root-cause-legend {
+  display: flex;
+  gap: 20px;
+  flex-wrap: wrap;
+  margin-bottom: 20px;
+  padding-bottom: 12px;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.5);
+  font-size: 0.8rem;
+  color: #94a3b8;
+}
+
+.root-cause-legend span {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.legend-workflow {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: #3b82f6;
+  display: inline-block;
+}
+
+.legend-service {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: #f59e0b;
+  display: inline-block;
+}
+
+.legend-blocker {
+  width: 12px;
+  height: 12px;
+  border-radius: 3px;
+  background: #ef4444;
+  display: inline-block;
+}
+
+.root-cause-canvas {
+  width: 100%;
+  overflow-x: auto;
+  background: radial-gradient(circle at 50% 50%, rgba(30, 41, 59, 0.4) 0%, rgba(15, 23, 42, 0.8) 100%);
+  border-radius: 12px;
+  border: 1px solid rgba(51, 65, 85, 0.4);
+}
+
+.root-cause-canvas svg {
+  display: block;
+  width: 100%;
+  min-width: 850px;
+  height: auto;
+}
+
+/* Edge Paths */
+.graph-edge-path {
+  fill: none;
+  stroke-linecap: round;
+  transition: stroke 0.2s ease, stroke-width 0.2s ease;
+}
+
+.standard-path {
+  stroke: #38bdf8;
+  stroke-width: 2;
+  opacity: 0.85;
+}
+
+.blocker-path {
+  stroke: #ef4444;
+  stroke-width: 2.5;
+  stroke-dasharray: 6 3;
+  animation: dash-animation 20s linear infinite;
+}
+
+.cycle-path {
+  stroke: #f97316;
+  stroke-width: 3;
+  filter: drop-shadow(0 0 6px rgba(249, 115, 22, 0.4));
+}
+
+@keyframes dash-animation {
+  to {
+    stroke-dashoffset: -1000;
+  }
+}
+
+/* Edge Pill Labels */
+.edge-pill-bg {
+  stroke-width: 1;
+}
+
+.pill-standard {
+  fill: #0f172a;
+  stroke: #38bdf8;
+}
+
+.pill-blocker {
+  fill: #1c1917;
+  stroke: #ef4444;
+}
+
+.pill-cycle {
+  fill: #291205;
+  stroke: #f97316;
+}
+
+.edge-pill-text {
+  font-size: 9px;
+  font-weight: 700;
+  letter-spacing: 0.05em;
+  text-anchor: middle;
+  dominant-baseline: middle;
+  fill: #f1f5f9;
+}
+
+/* Node Rectangles */
+.node-card {
+  stroke-width: 1.5;
+  transition: all 0.2s ease;
+}
+
+.node-workflow {
+  fill: rgba(30, 27, 75, 0.85);
+  stroke: #6366f1;
+}
+
+.node-service {
+  fill: rgba(69, 26, 3, 0.85);
+  stroke: #f59e0b;
+}
+
+.graph-node:hover .node-card {
+  stroke-width: 2.5;
+  filter: drop-shadow(0 0 10px rgba(99, 102, 241, 0.4));
+}
+
+.graph-node-type {
+  font-size: 9px;
+  font-weight: 800;
+  fill: #94a3b8;
+  letter-spacing: 0.05em;
+}
+
+.graph-node-risk {
+  font-size: 9px;
+  font-weight: 700;
+  fill: #f87171;
+}
+
+.graph-node-label {
+  font-size: 12px;
+  font-weight: 700;
+  fill: #f8fafc;
+}
+
+.graph-node-subtitle {
+  font-size: 9.5px;
+  fill: #94a3b8;
+}
+
+/* Summary Bottom Bar */
+.root-cause-summary {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 16px;
+  font-size: 0.85rem;
+  color: #94a3b8;
+}
+
+.root-cause-summary strong {
+  color: #f1f5f9;
+}
+
+.cycle-indicator-pill {
+  margin-left: auto;
+  font-size: 0.78rem;
+  font-weight: 700;
+  color: #f97316;
+  background: rgba(249, 115, 22, 0.15);
+  border: 1px solid rgba(249, 115, 22, 0.4);
+  padding: 4px 12px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
