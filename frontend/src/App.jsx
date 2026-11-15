@@ -237,7 +237,23 @@ function Dashboard() {
   // Hooks must always run in the same order.
 
   if (location.pathname === "/chat") {
-    return <Chat />;
+    return (
+      <div
+        className={
+          sidebarCollapsed
+            ? "dashboard-page sidebar-is-collapsed"
+            : "dashboard-page"
+        }
+      >
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          setCollapsed={setSidebarCollapsed}
+        />
+        <main className="dashboard-main" style={{ padding: 0 }}>
+          <Chat />
+        </main>
+      </div>
+    );
   }
 
   if (location.pathname === "/integrations") {
@@ -252,11 +268,25 @@ function Dashboard() {
 // PHASE 5.1 - WORKFLOW EXPLORER
 // =========================================
 
-if (location.pathname === "/workflow") {
-
-  return <WorkflowExplorer />;
-
-}
+  if (location.pathname === "/workflow") {
+    return (
+      <div
+        className={
+          sidebarCollapsed
+            ? "dashboard-page sidebar-is-collapsed"
+            : "dashboard-page"
+        }
+      >
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          setCollapsed={setSidebarCollapsed}
+        />
+        <main className="dashboard-main" style={{ padding: 0 }}>
+          <WorkflowExplorer />
+        </main>
+      </div>
+    );
+  }
 
 
   // =========================================
