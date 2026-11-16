@@ -528,15 +528,17 @@ function Dashboard() {
               }
               onComplete={async (result) => {
                 const decision = result?.status || "approved";
+                const isApproved = decision === "approve" || decision === "approved";
+
                 const newRecord = {
                   id: pendingApproval.execution_id || 100,
-                  workflow_health: "Remediated",
+                  workflow_health: isApproved ? "Remediated" : "At Risk",
                   proposed_action: typeof pendingApproval.proposed_action === "string"
-                    ? { target: pendingApproval.proposed_action, new_value: "Executed" }
+                    ? { target: pendingApproval.proposed_action, new_value: isApproved ? "Executed" : "Cancelled" }
                     : pendingApproval.proposed_action,
-                  approval_status: decision === "approved" ? "Approved" : "Rejected",
-                  execution_status: decision === "approved" ? "Completed" : "Cancelled",
-                  execution_time: 0.9,
+                  approval_status: isApproved ? "Approved" : "Rejected",
+                  execution_status: isApproved ? "Completed" : "Cancelled",
+                  execution_time: isApproved ? 0.9 : 0.1,
                   started_at: new Date().toISOString()
                 };
 
@@ -545,15 +547,23 @@ function Dashboard() {
                 setExecutionStats((prev) => prev ? {
                   ...prev,
                   total_executions: (prev.total_executions || 0) + 1,
-                  poor_executions: Math.max(0, (prev.poor_executions || 1) - 1)
+                  poor_executions: isApproved ? Math.max(0, (prev.poor_executions || 1) - 1) : prev.poor_executions
                 } : prev);
 
-                // Update workflow health to show risk reduced
-                setData((prev) => prev ? {
-                  ...prev,
-                  workflow_health: "Healthy",
-                  high_severity_issues: Math.max(0, (prev.high_severity_issues || 1) - 1)
-                } : prev);
+                // Update workflow health: ONLY improve to Healthy if Approved; keep At Risk if Rejected!
+                if (isApproved) {
+                  setData((prev) => prev ? {
+                    ...prev,
+                    workflow_health: "Healthy",
+                    high_severity_issues: Math.max(0, (prev.high_severity_issues || 1) - 1)
+                  } : prev);
+                } else {
+                  setData((prev) => prev ? {
+                    ...prev,
+                    workflow_health: "At Risk (Rejected)",
+                    high_severity_issues: prev.high_severity_issues
+                  } : prev);
+                }
 
                 setPendingApproval(null);
               }}
@@ -565,26 +575,38 @@ function Dashboard() {
               approvalReason={FALLBACK_PENDING_APPROVAL.approval_reason}
               onComplete={(result) => {
                 const decision = result?.status || "approved";
+                const isApproved = decision === "approve" || decision === "approved";
+
                 const newRecord = {
                   id: 100,
-                  workflow_health: "Remediated",
+                  workflow_health: isApproved ? "Remediated" : "At Risk",
                   proposed_action: FALLBACK_PENDING_APPROVAL.proposed_action,
-                  approval_status: decision === "approved" ? "Approved" : "Rejected",
-                  execution_status: decision === "approved" ? "Completed" : "Cancelled",
-                  execution_time: 0.9,
+                  approval_status: isApproved ? "Approved" : "Rejected",
+                  execution_status: isApproved ? "Completed" : "Cancelled",
+                  execution_time: isApproved ? 0.9 : 0.1,
                   started_at: new Date().toISOString()
                 };
                 setExecutionData((prev) => [newRecord, ...prev.filter(e => e.id !== 100)]);
                 setExecutionStats((prev) => prev ? {
                   ...prev,
                   total_executions: (prev.total_executions || 0) + 1,
-                  poor_executions: Math.max(0, (prev.poor_executions || 1) - 1)
+                  poor_executions: isApproved ? Math.max(0, (prev.poor_executions || 1) - 1) : prev.poor_executions
                 } : prev);
-                setData((prev) => prev ? {
-                  ...prev,
-                  workflow_health: "Healthy",
-                  high_severity_issues: Math.max(0, (prev.high_severity_issues || 1) - 1)
-                } : prev);
+
+                if (isApproved) {
+                  setData((prev) => prev ? {
+                    ...prev,
+                    workflow_health: "Healthy",
+                    high_severity_issues: Math.max(0, (prev.high_severity_issues || 1) - 1)
+                  } : prev);
+                } else {
+                  setData((prev) => prev ? {
+                    ...prev,
+                    workflow_health: "At Risk (Unresolved)",
+                    high_severity_issues: prev.high_severity_issues
+                  } : prev);
+                }
+
                 setPendingApproval(null);
               }}
             />
