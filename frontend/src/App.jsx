@@ -1,4 +1,4 @@
-import AnomalyDetectionPanel from "./components/AnomalyDetectionPanel";
+import MachineLearningIntelligence from "./components/MachineLearningIntelligence";
 import {
   useEffect,
   useState,
@@ -716,145 +716,13 @@ function Dashboard() {
 
 
           {/* =========================================
-              SLA PREDICTION
+              PREDICTIVE & BEHAVIORAL INTELLIGENCE
+              (Supervised Random Forest + Unsupervised Isolation Forest + Shared Operational View)
           ========================================= */}
-
-          <div
-            className="sla-prediction-panel"
-          >
-
-            <div
-              className="sla-prediction-header"
-            >
-
-              <div>
-
-                <span
-                  className="section-kicker"
-                >
-                  PREDICTIVE INTELLIGENCE
-                </span>
-
-                <h2>
-                  SLA Prediction
-                </h2>
-
-                <p>
-                  TensorFlow-based prediction
-                  of potential SLA breach.
-                </p>
-
-              </div>
-
-
-              <div
-                className="sla-model-badge"
-              >
-                TensorFlow Model
-              </div>
-
-            </div>
-
-
-            <div
-              className="sla-prediction-grid"
-            >
-
-
-              {/* =====================================
-                  SLA BREACH PROBABILITY
-              ===================================== */}
-
-              <div
-                className="sla-stat-card"
-              >
-
-                <span>
-                  SLA BREACH PROBABILITY
-                </span>
-
-                <strong>
-                  {slaProbability}%
-                </strong>
-
-                <small>
-                  Predicted probability
-                </small>
-
-              </div>
-
-
-              {/* =====================================
-                  SLA RISK LEVEL
-              ===================================== */}
-
-              <div
-                className={
-                  slaRisk === "High"
-                    ? "sla-stat-card sla-risk-high"
-                    : slaRisk === "Medium"
-                      ? "sla-stat-card sla-risk-medium"
-                      : "sla-stat-card sla-risk-low"
-                }
-              >
-
-                <span>
-                  RISK LEVEL
-                </span>
-
-                <strong>
-                  {slaRisk}
-                </strong>
-
-                <small>
-                  Model classification
-                </small>
-
-              </div>
-
-
-              {/* =====================================
-                  MODEL STATUS
-              ===================================== */}
-
-              <div
-                className="sla-stat-card"
-              >
-
-                <span>
-                  MODEL STATUS
-                </span>
-
-                <strong>
-                  {
-                    riskData.sla_prediction
-                      ? "Active"
-                      : "Unavailable"
-                  }
-                </strong>
-
-                <small>
-                  Prediction service
-                </small>
-
-              </div>
-
-            </div>
-
-          </div>
-
-
-          {/* =========================================
-              EXISTING RISK CARDS
-          ========================================= */}
-
-          
-          {/* =========================================
-              FEATURE 6: UNSUPERVISED ANOMALY DETECTION (ISOLATION FOREST)
-          ========================================= */}
-          <div style={{ marginTop: "24px", marginBottom: "24px" }}>
-            <AnomalyDetectionPanel anomaliesData={data?.unsupervised_anomalies || FALLBACK_ANOMALIES} />
-          </div>
+          <MachineLearningIntelligence 
+            riskData={riskData} 
+            anomaliesData={data?.unsupervised_anomalies || FALLBACK_ANOMALIES} 
+          />
 
           <div
             className="risk-cards-wrapper"
