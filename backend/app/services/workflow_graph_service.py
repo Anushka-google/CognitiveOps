@@ -1,3 +1,4 @@
+from app.services.anomaly_detector import AnomalyDetectorService
 import time
 import json
 import logging
@@ -447,6 +448,16 @@ class WorkflowGraphService:
 
             result = dict(result)
             result["executive_summary"] = executive_summary
+
+            # =================================================
+            # FEATURE 6: UNSUPERVISED ANOMALY DETECTION (ISOLATION FOREST)
+            # =================================================
+            try:
+                anomaly_service = AnomalyDetectorService()
+                result["unsupervised_anomalies"] = anomaly_service.detect_anomalies(workflows)
+            except Exception as anom_err:
+                logger.warning("Unsupervised anomaly detection note: %s", anom_err)
+                result["unsupervised_anomalies"] = None
 
             # =================================================
             # HITL STATE

@@ -142,6 +142,7 @@ export const FALLBACK_WORKFLOW_DATA = {
   workflow_health: "At Risk",
   executive_summary: "Automated analysis detected 8 active issues across the operational workflow DAG. Primary delivery bottleneck is KAN-101 (Payment Gateway Integration) with an idle delay of 4.2 days exceeding SLA. 1 circular dependency cycle was identified between KAN-101 and KAN-104. Recommended mitigation: expedite lead review and decouple schema check.",
   workflows: FALLBACK_WORKFLOWS,
+  unsupervised_anomalies: FALLBACK_ANOMALIES,
   root_cause_graph: FALLBACK_ROOT_CAUSE_GRAPH,
   insights: [
     {
@@ -241,4 +242,159 @@ export const FALLBACK_PENDING_APPROVAL = {
     details: "Notify engineering leads of KAN-101 SLA threshold breach (4.2 days idle)"
   },
   approval_reason: "Ticket KAN-101 has remained in 'In Review' for 4.2 days exceeding SLA threshold by 112%."
+};
+
+
+export const FALLBACK_ANOMALIES = {
+  algorithm: "Isolation Forest (Unsupervised)",
+  model_parameters: {
+    n_estimators: 100,
+    contamination: 0.25,
+    zero_static_rule_bias: true
+  },
+  distribution_baseline: {
+    mean_wait_days: 1.88,
+    std_wait_days: 1.76,
+    total_work_items: 8
+  },
+  total_evaluated: 8,
+  anomalies_detected: 3,
+  contamination_rate: 0.25,
+  anomalous_tickets: [
+    {
+      ticket_id: "KAN-107",
+      title: "Staging DB Migration Idle",
+      priority: "Critical",
+      status: "Blocked",
+      days_waiting: 4.5,
+      anomaly_score: 0.942,
+      z_score: 1.49,
+      is_anomaly: true,
+      risk_tier: "Critical Outlier",
+      explanation: "Isolation Forest identified true handoff delay of 4.5 days (1.5σ deviation above 1.9d mean baseline). Multi-feature tree isolation score: 0.94 (Zero static rule bias)."
+    },
+    {
+      ticket_id: "KAN-101",
+      title: "Payment Gateway Integration Blocked",
+      priority: "High",
+      status: "In Review",
+      days_waiting: 4.2,
+      anomaly_score: 0.885,
+      z_score: 1.32,
+      is_anomaly: true,
+      risk_tier: "Critical Outlier",
+      explanation: "Isolation Forest identified true handoff delay of 4.2 days (1.3σ deviation above 1.9d mean baseline). Multi-feature tree isolation score: 0.89 (Zero static rule bias)."
+    },
+    {
+      ticket_id: "KAN-104",
+      title: "Payment Webhook Callback Handler",
+      priority: "High",
+      status: "Blocked",
+      days_waiting: 3.7,
+      anomaly_score: 0.764,
+      z_score: 1.03,
+      is_anomaly: true,
+      risk_tier: "Elevated Delay",
+      explanation: "Isolation Forest identified true handoff delay of 3.7 days (1.0σ deviation above 1.9d mean baseline). Multi-feature tree isolation score: 0.76 (Zero static rule bias)."
+    }
+  ],
+  all_evaluations: [
+    {
+      ticket_id: "KAN-107",
+      title: "Staging DB Migration Idle",
+      priority: "Critical",
+      status: "Blocked",
+      days_waiting: 4.5,
+      anomaly_score: 0.942,
+      z_score: 1.49,
+      is_anomaly: true,
+      risk_tier: "Critical Outlier",
+      explanation: "Isolation Forest identified true handoff delay of 4.5 days (1.5σ deviation above 1.9d mean baseline)."
+    },
+    {
+      ticket_id: "KAN-101",
+      title: "Payment Gateway Integration Blocked",
+      priority: "High",
+      status: "In Review",
+      days_waiting: 4.2,
+      anomaly_score: 0.885,
+      z_score: 1.32,
+      is_anomaly: true,
+      risk_tier: "Critical Outlier",
+      explanation: "Isolation Forest identified true handoff delay of 4.2 days (1.3σ deviation above 1.9d mean baseline)."
+    },
+    {
+      ticket_id: "KAN-104",
+      title: "Payment Webhook Callback Handler",
+      priority: "High",
+      status: "Blocked",
+      days_waiting: 3.7,
+      anomaly_score: 0.764,
+      z_score: 1.03,
+      is_anomaly: true,
+      risk_tier: "Elevated Delay",
+      explanation: "Isolation Forest identified true handoff delay of 3.7 days (1.0σ deviation above 1.9d mean baseline)."
+    },
+    {
+      ticket_id: "KAN-105",
+      title: "Order Notification Dispatcher",
+      priority: "Medium",
+      status: "To Do",
+      days_waiting: 1.1,
+      anomaly_score: 0.219,
+      z_score: -0.44,
+      is_anomaly: false,
+      risk_tier: "Nominal Flow",
+      explanation: "Within typical operational distribution envelope."
+    },
+    {
+      ticket_id: "KAN-102",
+      title: "User Authentication Service",
+      priority: "Medium",
+      status: "In Progress",
+      days_waiting: 0.8,
+      anomaly_score: 0.184,
+      z_score: -0.61,
+      is_anomaly: false,
+      risk_tier: "Nominal Flow",
+      explanation: "Within typical operational distribution envelope."
+    },
+    {
+      ticket_id: "KAN-106",
+      title: "Inventory Cache Sync",
+      priority: "Low",
+      status: "In Progress",
+      days_waiting: 0.5,
+      anomaly_score: 0.095,
+      z_score: -0.78,
+      is_anomaly: false,
+      risk_tier: "Nominal Flow",
+      explanation: "Within typical operational distribution envelope."
+    },
+    {
+      ticket_id: "KAN-108",
+      title: "Audit Log Archival Job",
+      priority: "Low",
+      status: "To Do",
+      days_waiting: 0.3,
+      anomaly_score: 0.041,
+      z_score: -0.90,
+      is_anomaly: false,
+      risk_tier: "Nominal Flow",
+      explanation: "Within typical operational distribution envelope."
+    },
+    {
+      ticket_id: "KAN-103",
+      title: "Cart Checkout Flow Optimization",
+      priority: "Low",
+      status: "Done",
+      days_waiting: 0.1,
+      anomaly_score: 0.012,
+      z_score: -1.01,
+      is_anomaly: false,
+      risk_tier: "Nominal Flow",
+      explanation: "Within typical operational distribution envelope."
+    }
+  ],
+  summary: "Isolation Forest dynamically modeled 8 work items and isolated 3 true handoff delay anomalies without static rule threshold bias."
 };

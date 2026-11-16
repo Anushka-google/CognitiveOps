@@ -149,6 +149,21 @@ function Sidebar({ collapsed, setCollapsed }) {
           )}
         </button>
 
+        <button
+          type="button"
+          className="sidebar-item"
+          onClick={() => scrollToSection("anomaly-detection")}
+          title={collapsed ? "Anomaly Detection" : ""}
+        >
+          <span className="sidebar-icon">🌲</span>
+
+          {!collapsed && (
+            <span className="sidebar-item-text">
+              Anomaly Detection
+            </span>
+          )}
+        </button>
+
         {/* ---------- WORKFLOW ---------- */}
 
         {!collapsed && (

@@ -1,3 +1,4 @@
+import AnomalyDetectionPanel from "./components/AnomalyDetectionPanel";
 import {
   useEffect,
   useState,
@@ -43,7 +44,8 @@ import {
   FALLBACK_RISK_DATA,
   FALLBACK_EXECUTION_STATS,
   FALLBACK_EXECUTIONS,
-  FALLBACK_PENDING_APPROVAL
+  FALLBACK_PENDING_APPROVAL,
+  FALLBACK_ANOMALIES
 } from "./services/fallbackData";
 
 import Login from "./pages/Login";
@@ -115,7 +117,8 @@ function Dashboard() {
     setRiskData(FALLBACK_RISK_DATA);
     setExecutionStats(FALLBACK_EXECUTION_STATS);
     setExecutionData(FALLBACK_EXECUTIONS);
-    setPendingApproval(FALLBACK_PENDING_APPROVAL);
+    setPendingApproval(FALLBACK_PENDING_APPROVAL,
+  FALLBACK_ANOMALIES);
     setIsUsingFallback(true);
     setError(null);
   };
@@ -606,9 +609,12 @@ function Dashboard() {
             />
           ) : (
             <ApprovalPanel
-              executionId={FALLBACK_PENDING_APPROVAL.execution_id}
-              proposedAction={FALLBACK_PENDING_APPROVAL.proposed_action}
-              approvalReason={FALLBACK_PENDING_APPROVAL.approval_reason}
+              executionId={FALLBACK_PENDING_APPROVAL,
+  FALLBACK_ANOMALIES.execution_id}
+              proposedAction={FALLBACK_PENDING_APPROVAL,
+  FALLBACK_ANOMALIES.proposed_action}
+              approvalReason={FALLBACK_PENDING_APPROVAL,
+  FALLBACK_ANOMALIES.approval_reason}
               onComplete={(result) => {
                 const decision = result?.status || "approved";
                 const isApproved = decision === "approve" || decision === "approved";
@@ -841,6 +847,14 @@ function Dashboard() {
           {/* =========================================
               EXISTING RISK CARDS
           ========================================= */}
+
+          
+          {/* =========================================
+              FEATURE 6: UNSUPERVISED ANOMALY DETECTION (ISOLATION FOREST)
+          ========================================= */}
+          <div style={{ marginTop: "24px", marginBottom: "24px" }}>
+            <AnomalyDetectionPanel anomaliesData={data?.unsupervised_anomalies || FALLBACK_ANOMALIES} />
+          </div>
 
           <div
             className="risk-cards-wrapper"

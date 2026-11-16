@@ -1,3 +1,4 @@
+from app.services.anomaly_detector import AnomalyDetectorService
 from typing import Literal
 import os
 
@@ -556,3 +557,24 @@ def workflow_approval(
 
             detail=str(e)
         )
+
+
+# =========================================================
+# UNSUPERVISED ANOMALY DETECTION (ISOLATION FOREST)
+# Feature 6
+# =========================================================
+@router.get("/anomalies")
+def get_unsupervised_anomalies():
+    try:
+        jira_service = JiraService()
+        workflows = jira_service.get_workflow_records()
+        detector = AnomalyDetectorService()
+        return detector.detect_anomalies(workflows)
+    except Exception as e:
+        logger.error("Error in unsupervised anomalies endpoint: %s", str(e))
+        return {
+            "algorithm": "Isolation Forest (Unsupervised)",
+            "error": str(e),
+            "anomalies_detected": 0,
+            "anomalous_tickets": []
+        }
