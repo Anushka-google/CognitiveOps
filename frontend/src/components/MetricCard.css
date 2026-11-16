@@ -1,161 +1,129 @@
-.metric-card {
-  background:
-    rgba(30, 41, 59, 0.7);
+/* ==========================================================================
+   COGNITIVEOPS // METRIC TELEMETRY CARD (INDUSTRIAL AEROSPACE HUD)
+   ========================================================================== */
 
-  backdrop-filter:
-    blur(12px);
-
-  border:
-    1px solid #334155;
-
-  border-radius:
-    18px;
-
-  padding:
-    24px;
-
-  text-align:
-    center;
-
-  transition:
-    0.3s ease;
-
-  min-height:
-    120px;
-
-  display:
-    flex;
-
-  flex-direction:
-    column;
-
-  justify-content:
-    center;
-
-  box-sizing:
-    border-box;
+.metric-telemetry-card {
+  background: var(--bg-panel);
+  border: 1px solid var(--border-hairline);
+  border-radius: 8px;
+  padding: 18px 20px;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  min-height: 124px;
+  position: relative;
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+  overflow: hidden;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.25);
 }
 
-
-.metric-card:hover {
-  transform:
-    translateY(-6px);
-
-  box-shadow:
-    0 10px 30px
-    rgba(59, 130, 246, 0.2);
+.metric-telemetry-card:hover {
+  transform: translateY(-2px);
+  border-color: var(--border-highlight);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.35);
 }
 
-
-/* =========================
-   CARD TITLE
-========================= */
-
-.metric-card h2 {
-  font-size:
-    1.1rem;
-
-  color:
-    #cbd5e1;
-
-  margin:
-    0 0 12px 0;
+.metric-telemetry-card::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 3px;
+  height: 100%;
+  background: var(--accent-cyan);
 }
 
-
-/* =========================
-   CARD VALUE
-========================= */
-
-.metric-card p {
-  font-size:
-    2rem;
-
-  font-weight:
-    bold;
-
-  margin:
-    0;
-
-  color:
-    #f8fafc;
+.metric-telemetry-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 8px;
 }
 
-
-/* =========================
-   WORKFLOW HEALTH
-========================= */
-
-.health-poor {
-  border:
-    2px solid #ef4444;
+.metric-title-text {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--text-muted);
 }
 
-
-.health-good {
-  border:
-    2px solid #22c55e;
+.metric-badge-pill {
+  font-family: var(--font-mono);
+  font-size: 9.5px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  padding: 2px 7px;
+  border-radius: 4px;
+  border: 1px solid var(--border-hairline);
+  background: var(--bg-surface);
+  color: var(--text-dim);
 }
 
-
-/* =========================
-   SLA MEDIUM RISK
-========================= */
-
-.risk-medium {
-  border:
-    2px solid #f59e0b;
+.metric-telemetry-body {
+  margin: 4px 0 10px 0;
 }
 
-
-/* =========================
-   TABLE
-========================= */
-
-.table-container {
-  transition:
-    0.3s ease;
+.metric-number-display {
+  font-family: var(--font-display);
+  font-size: 30px;
+  font-weight: 700;
+  color: var(--text-primary);
+  line-height: 1;
+  letter-spacing: -0.02em;
 }
 
-
-.table-container:hover {
-  transform:
-    translateY(-4px);
+.metric-telemetry-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 10px;
+  border-top: 1px solid var(--border-subtle);
+  padding-top: 8px;
 }
 
-
-/* =========================
-   RESPONSIVE
-========================= */
-
-@media (max-width: 900px) {
-
-  .metric-card {
-    padding:
-      20px;
-  }
-
-  .metric-card h2 {
-    font-size:
-      1rem;
-  }
-
-  .metric-card p {
-    font-size:
-      1.7rem;
-  }
+.telemetry-grid-line {
+  flex: 1;
+  height: 1px;
+  background: linear-gradient(90deg, var(--border-hairline) 0%, transparent 100%);
 }
 
+.telemetry-live-tag {
+  font-family: var(--font-mono);
+  font-size: 8.5px;
+  color: var(--text-dim);
+  letter-spacing: 0.1em;
+}
 
-@media (max-width: 600px) {
+/* Status Variants */
+.metric-telemetry-card.status-critical::before {
+  background: var(--accent-crimson);
+}
+.metric-telemetry-card.status-critical .metric-badge-pill {
+  color: var(--accent-crimson);
+  background: var(--accent-crimson-dim);
+  border-color: rgba(255, 51, 102, 0.4);
+}
+.metric-telemetry-card.status-critical:hover {
+  border-color: rgba(255, 51, 102, 0.4);
+  box-shadow: 0 8px 24px rgba(255, 51, 102, 0.15);
+}
 
-  .metric-card {
-    width:
-      100%;
-  }
+.metric-telemetry-card.status-warning::before {
+  background: var(--accent-amber);
+}
+.metric-telemetry-card.status-warning .metric-badge-pill {
+  color: var(--accent-amber);
+  background: var(--accent-amber-dim);
+  border-color: rgba(255, 183, 3, 0.4);
+}
 
-  .metric-card p {
-    font-size:
-      1.6rem;
-  }
+.metric-telemetry-card.status-optimal::before {
+  background: var(--accent-emerald);
+}
+.metric-telemetry-card.status-optimal .metric-badge-pill {
+  color: var(--accent-emerald);
+  background: var(--accent-emerald-dim);
+  border-color: rgba(0, 230, 118, 0.4);
 }

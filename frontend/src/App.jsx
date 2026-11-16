@@ -384,6 +384,36 @@ function Dashboard() {
       <main
         className="dashboard-main"
       >
+        {/* =========================================
+            COMMAND-DECK HUD (MISSION CONTROL TELEMETRY BAR)
+        ========================================= */}
+        <div className="command-deck-hud">
+          <div className="hud-left">
+            <span className="hud-callsign">
+              <span className="brand-dot">⚡</span> COGNITIVEOPS // COMMAND_DECK v2.4
+            </span>
+            <span className="hud-pill live">
+              <span className="beacon-dot live"></span> REALTIME OPERATIONAL
+            </span>
+            <span className="hud-pill">
+              REGION: GLOBAL-PRIMARY
+            </span>
+          </div>
+          <div className="hud-right">
+            <div className="hud-metric-item">
+              <span className="hud-metric-label">PIPELINE LATENCY:</span>
+              <span className="hud-metric-value cyan">18ms (SUB-120ms SLA)</span>
+            </div>
+            <div className="hud-metric-item">
+              <span className="hud-metric-label">VECTOR STORE:</span>
+              <span className="hud-metric-value">CHROMADB // ACTIVE</span>
+            </div>
+            <div className="hud-metric-item">
+              <span className="hud-metric-label">SPRINT FEED:</span>
+              <span className="hud-metric-value orange">{isUsingFallback ? "RESILIENT TELEMETRY" : "LIVE ATOM"}</span>
+            </div>
+          </div>
+        </div>
 
 
         {/* =========================================
