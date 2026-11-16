@@ -507,6 +507,42 @@ function Dashboard() {
 
         </section>
 
+        {/* Quick Jump Bar for Feature 5: 5-Stage Pipeline */}
+        <div style={{
+          display: "flex",
+          justifyContent: "space-between",
+          alignItems: "center",
+          background: "linear-gradient(90deg, rgba(30, 41, 59, 0.7) 0%, rgba(15, 23, 42, 0.8) 100%)",
+          border: "1px solid rgba(56, 189, 248, 0.25)",
+          borderRadius: "10px",
+          padding: "10px 18px",
+          marginBottom: "24px"
+        }}>
+          <div style={{ display: "flex", alignItems: "center", gap: "10px" }}>
+            <span style={{ fontSize: "16px" }}>⚡</span>
+            <span style={{ fontSize: "0.85rem", color: "#e2e8f0", fontWeight: "600" }}>
+              Feature 5: 5-Stage Intelligence Pipeline Architecture (Sub-120ms Ingestion)
+            </span>
+          </div>
+          <button
+            onClick={() => {
+              const el = document.getElementById("pipeline");
+              if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
+            }}
+            style={{
+              background: "rgba(56, 189, 248, 0.12)",
+              border: "1px solid rgba(56, 189, 248, 0.4)",
+              color: "#38bdf8",
+              borderRadius: "6px",
+              padding: "6px 14px",
+              fontSize: "0.78rem",
+              fontWeight: "600",
+              cursor: "pointer"
+            }}
+          >
+            Inspect 5 Stages Architecture ↓
+          </button>
+        </div>
 
         {/* =========================================
             HUMAN-IN-THE-LOOP APPROVAL
@@ -1516,11 +1552,11 @@ function Dashboard() {
               <span
                 className="section-kicker"
               >
-                ANALYSIS PIPELINE
+                EVENT-DRIVEN ARCHITECTURE • FEATURE 5
               </span>
 
               <h2>
-                Intelligence Workflow
+                5-Stage Intelligence Pipeline (Sub-120ms Ingestion)
               </h2>
 
             </div>

@@ -134,6 +134,21 @@ function Sidebar({ collapsed, setCollapsed }) {
           )}
         </button>
 
+        <button
+          type="button"
+          className="sidebar-item"
+          onClick={() => scrollToSection("pipeline")}
+          title={collapsed ? "5-Stage Pipeline" : ""}
+        >
+          <span className="sidebar-icon">⚡</span>
+
+          {!collapsed && (
+            <span className="sidebar-item-text">
+              5-Stage Pipeline
+            </span>
+          )}
+        </button>
+
         {/* ---------- WORKFLOW ---------- */}
 
         {!collapsed && (
