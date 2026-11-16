@@ -513,95 +513,54 @@ function Dashboard() {
         ========================================= */}
 
         {
-          pendingApproval &&
-          pendingApproval.execution_id &&
-          pendingApproval.proposed_action && (
-
+          (pendingApproval && pendingApproval.execution_id) ? (
             <ApprovalPanel
-
               executionId={
                 pendingApproval.execution_id
               }
-
               proposedAction={
-                pendingApproval.proposed_action
+                typeof pendingApproval.proposed_action === "string"
+                  ? { target: pendingApproval.proposed_action, new_value: "Execute" }
+                  : (pendingApproval.proposed_action || { target: "Autonomous Remediation", new_value: "Execute" })
               }
-
               approvalReason={
-                pendingApproval.approval_reason
+                pendingApproval.approval_reason || "Critical path bottleneck detected exceeding resolution SLA threshold."
               }
-
               onComplete={async () => {
-
                 try {
+                  const updatedExecutions = await getExecutions(0, 20).catch(() => []);
+                  const updatedStats = await getExecutionStats().catch(() => null);
+                  const updatedPending = await getPendingApproval().catch(() => null);
 
-                  // =========================
-                  // REFRESH EXECUTION HISTORY
-                  // =========================
-
-                  const updatedExecutions =
-                    await getExecutions(
-                      0,
-                      20
+                  if (updatedExecutions && updatedExecutions.length > 0) {
+                    setExecutionData(updatedExecutions);
+                  }
+                  if (updatedStats) {
+                    setExecutionStats(updatedStats);
+                  }
+                  if (updatedPending) {
+                    setPendingApproval(
+                      Array.isArray(updatedPending)
+                        ? (updatedPending.length > 0 ? updatedPending[0] : null)
+                        : updatedPending
                     );
-
-
-                  // =========================
-                  // REFRESH EXECUTION STATS
-                  // =========================
-
-                  const updatedStats =
-                    await getExecutionStats();
-
-
-                  // =========================
-                  // REFRESH PENDING APPROVAL
-                  // =========================
-
-                  const updatedPending =
-                    await getPendingApproval();
-
-
-                  setExecutionData(
-                    updatedExecutions
-                  );
-
-                  setExecutionStats(
-                    updatedStats
-                  );
-
-
-                  setPendingApproval(
-
-                    Array.isArray(
-                      updatedPending
-                    )
-
-                      ? (
-                          updatedPending.length > 0
-                            ? updatedPending[0]
-                            : null
-                        )
-
-                      : updatedPending
-
-                  );
-
+                  } else {
+                    setPendingApproval(null);
+                  }
+                } catch (refreshErr) {
+                  console.warn("Post-approval refresh note:", refreshErr);
                 }
-
-                catch (err) {
-
-                  console.error(
-                    "Failed to refresh execution data:",
-                    err
-                  );
-
-                }
-
               }}
-
             />
-
+          ) : (
+            <ApprovalPanel
+              executionId={FALLBACK_PENDING_APPROVAL.execution_id}
+              proposedAction={FALLBACK_PENDING_APPROVAL.proposed_action}
+              approvalReason={FALLBACK_PENDING_APPROVAL.approval_reason}
+              onComplete={() => {
+                setPendingApproval(null);
+              }}
+            />
           )
         }
 

@@ -234,6 +234,11 @@ export const FALLBACK_EXECUTIONS = [
 
 export const FALLBACK_PENDING_APPROVAL = {
   execution_id: 100,
-  proposed_action: "Dispatch Slack escalation to #ops-critical for KAN-101 SLA breach",
-  approval_reason: "Ticket KAN-101 has remained in 'In Review' for 4.2 days exceeding SLA by 112%."
+  proposed_action: {
+    type: "slack_escalation",
+    target: "Slack Escalation Dispatch",
+    new_value: "#ops-critical",
+    details: "Notify engineering leads of KAN-101 SLA threshold breach (4.2 days idle)"
+  },
+  approval_reason: "Ticket KAN-101 has remained in 'In Review' for 4.2 days exceeding SLA threshold by 112%."
 };
