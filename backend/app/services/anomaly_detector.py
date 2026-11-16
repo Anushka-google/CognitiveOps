@@ -120,8 +120,8 @@ class AnomalyDetectorService:
                 is_delay_outlier = bool((preds[idx] == -1 or norm_score > 0.40) and meta["days_waiting"] >= mean_wait)
 
                 tier = (
-                    "Critical Outlier" if (norm_score > 0.70 and z_score > 1.0)
-                    else ("Elevated Delay" if (is_delay_outlier or z_score > 0.8) else "Nominal Flow")
+                    "High-Severity Anomaly" if (norm_score > 0.70 and z_score > 1.0)
+                    else ("Moderate Anomaly" if (is_delay_outlier or z_score > 0.8) else "Standard Envelope")
                 )
 
                 result_entry = {
@@ -137,7 +137,7 @@ class AnomalyDetectorService:
                     "explanation": (
                         f"Isolation Forest identified true handoff delay of {meta['days_waiting']} days "
                         f"({round(z_score, 1)}σ deviation above {round(mean_wait, 1)}d mean baseline). "
-                        f"Multi-feature tree isolation score: {round(norm_score, 2)} (Zero static rule bias)."
+                        f"Multi-feature tree isolation score: {round(norm_score, 2)} (Zero static threshold bias)."
                     ) if is_delay_outlier else "Within typical operational distribution envelope."
                 }
 

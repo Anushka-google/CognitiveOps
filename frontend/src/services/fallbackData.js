@@ -270,7 +270,7 @@ export const FALLBACK_ANOMALIES = {
       anomaly_score: 0.942,
       z_score: 1.49,
       is_anomaly: true,
-      risk_tier: "Critical Outlier",
+      risk_tier: "High-Severity Anomaly",
       explanation: "Isolation Forest identified true handoff delay of 4.5 days (1.5σ deviation above 1.9d mean baseline). Multi-feature tree isolation score: 0.94 (Zero static rule bias)."
     },
     {
@@ -282,7 +282,7 @@ export const FALLBACK_ANOMALIES = {
       anomaly_score: 0.885,
       z_score: 1.32,
       is_anomaly: true,
-      risk_tier: "Critical Outlier",
+      risk_tier: "High-Severity Anomaly",
       explanation: "Isolation Forest identified true handoff delay of 4.2 days (1.3σ deviation above 1.9d mean baseline). Multi-feature tree isolation score: 0.89 (Zero static rule bias)."
     },
     {
@@ -294,7 +294,7 @@ export const FALLBACK_ANOMALIES = {
       anomaly_score: 0.764,
       z_score: 1.03,
       is_anomaly: true,
-      risk_tier: "Elevated Delay",
+      risk_tier: "Moderate Anomaly",
       explanation: "Isolation Forest identified true handoff delay of 3.7 days (1.0σ deviation above 1.9d mean baseline). Multi-feature tree isolation score: 0.76 (Zero static rule bias)."
     }
   ],
@@ -308,7 +308,7 @@ export const FALLBACK_ANOMALIES = {
       anomaly_score: 0.942,
       z_score: 1.49,
       is_anomaly: true,
-      risk_tier: "Critical Outlier",
+      risk_tier: "High-Severity Anomaly",
       explanation: "Isolation Forest identified true handoff delay of 4.5 days (1.5σ deviation above 1.9d mean baseline)."
     },
     {
@@ -320,7 +320,7 @@ export const FALLBACK_ANOMALIES = {
       anomaly_score: 0.885,
       z_score: 1.32,
       is_anomaly: true,
-      risk_tier: "Critical Outlier",
+      risk_tier: "High-Severity Anomaly",
       explanation: "Isolation Forest identified true handoff delay of 4.2 days (1.3σ deviation above 1.9d mean baseline)."
     },
     {
@@ -332,7 +332,7 @@ export const FALLBACK_ANOMALIES = {
       anomaly_score: 0.764,
       z_score: 1.03,
       is_anomaly: true,
-      risk_tier: "Elevated Delay",
+      risk_tier: "Moderate Anomaly",
       explanation: "Isolation Forest identified true handoff delay of 3.7 days (1.0σ deviation above 1.9d mean baseline)."
     },
     {
@@ -344,7 +344,7 @@ export const FALLBACK_ANOMALIES = {
       anomaly_score: 0.219,
       z_score: -0.44,
       is_anomaly: false,
-      risk_tier: "Nominal Flow",
+      risk_tier: "Standard Envelope",
       explanation: "Within typical operational distribution envelope."
     },
     {
@@ -356,7 +356,7 @@ export const FALLBACK_ANOMALIES = {
       anomaly_score: 0.184,
       z_score: -0.61,
       is_anomaly: false,
-      risk_tier: "Nominal Flow",
+      risk_tier: "Standard Envelope",
       explanation: "Within typical operational distribution envelope."
     },
     {
@@ -368,7 +368,7 @@ export const FALLBACK_ANOMALIES = {
       anomaly_score: 0.095,
       z_score: -0.78,
       is_anomaly: false,
-      risk_tier: "Nominal Flow",
+      risk_tier: "Standard Envelope",
       explanation: "Within typical operational distribution envelope."
     },
     {
@@ -380,7 +380,7 @@ export const FALLBACK_ANOMALIES = {
       anomaly_score: 0.041,
       z_score: -0.90,
       is_anomaly: false,
-      risk_tier: "Nominal Flow",
+      risk_tier: "Standard Envelope",
       explanation: "Within typical operational distribution envelope."
     },
     {
@@ -392,7 +392,7 @@ export const FALLBACK_ANOMALIES = {
       anomaly_score: 0.012,
       z_score: -1.01,
       is_anomaly: false,
-      risk_tier: "Nominal Flow",
+      risk_tier: "Standard Envelope",
       explanation: "Within typical operational distribution envelope."
     }
   ],

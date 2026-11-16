@@ -263,11 +263,12 @@
 .performance-metrics-strip {
   display: flex;
   flex-wrap: wrap;
-  gap: 8px;
+  align-items: center;
+  gap: 10px;
   background: rgba(30, 41, 59, 0.4);
   border: 1px solid rgba(51, 65, 85, 0.5);
   border-radius: 8px;
-  padding: 6px 12px;
+  padding: 8px 12px;
   margin-bottom: 16px;
 }
 
@@ -278,6 +279,42 @@
 
 .perf-tag strong {
   color: #f1f5f9;
+}
+
+.perf-validation-note {
+  font-size: 0.68rem;
+  color: #64748b;
+  font-style: italic;
+  margin-left: auto;
+}
+
+.perf-calibration-note {
+  font-size: 0.68rem;
+  color: #a855f7;
+  font-weight: 500;
+}
+
+/* Bias Clarification Box */
+.bias-clarification-box {
+  margin-top: 16px;
+  background: rgba(15, 23, 42, 0.6);
+  border: 1px solid rgba(168, 85, 247, 0.3);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.bias-clarification-box strong {
+  display: block;
+  font-size: 0.74rem;
+  color: #c084fc;
+  margin-bottom: 3px;
+}
+
+.bias-clarification-box p {
+  font-size: 0.72rem;
+  color: #94a3b8;
+  line-height: 1.4;
+  margin: 0;
 }
 
 /* Sub Headings */
@@ -317,6 +354,17 @@
   border: 1px solid rgba(51, 65, 85, 0.6);
   border-radius: 10px;
   background: rgba(15, 23, 42, 0.4);
+  scrollbar-width: thin;
+  scrollbar-color: rgba(56, 189, 248, 0.3) rgba(15, 23, 42, 0.7);
+}
+
+.table-responsive-wrapper::-webkit-scrollbar {
+  height: 6px;
+}
+
+.table-responsive-wrapper::-webkit-scrollbar-thumb {
+  background: rgba(56, 189, 248, 0.3);
+  border-radius: 4px;
 }
 
 .ml-data-table {
@@ -456,11 +504,6 @@
   text-align: right;
 }
 
-.feat-val-note {
-  font-size: 0.72rem;
-  color: #94a3b8;
-}
-
 /* =========================================================================
    PANEL 3: COMPARISON CARD
 ========================================================================= */
@@ -493,6 +536,7 @@
 
 .comparison-table {
   width: 100%;
+  min-width: 780px;
   border-collapse: collapse;
   font-size: 0.78rem;
 }
@@ -666,6 +710,7 @@
 /* Combined Table */
 .combined-table {
   width: 100%;
+  min-width: 950px;
   border-collapse: collapse;
   font-size: 0.78rem;
 }
@@ -686,8 +731,22 @@
   color: #cbd5e1;
 }
 
+.clickable-row {
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+
+.clickable-row:hover {
+  background: rgba(56, 189, 248, 0.08) !important;
+}
+
+.clickable-row.row-expanded {
+  background: rgba(30, 41, 59, 0.75) !important;
+  border-bottom: none;
+}
+
 .urgent-row {
-  background: rgba(239, 68, 68, 0.04);
+  background: rgba(239, 68, 68, 0.03);
 }
 
 .ticket-cell strong {
@@ -746,8 +805,161 @@
   line-height: 1.4;
 }
 
+.inspect-toggle-btn {
+  background: rgba(56, 189, 248, 0.1);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  color: #38bdf8;
+  font-size: 0.7rem;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: 5px;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  white-space: nowrap;
+}
+
+.inspect-toggle-btn:hover {
+  background: rgba(56, 189, 248, 0.2);
+}
+
+/* =========================================================================
+   FORENSIC INVESTIGATION EXPANDABLE DRAWER
+========================================================================= */
+.drawer-row {
+  background: rgba(15, 23, 42, 0.95);
+}
+
+.drawer-cell {
+  padding: 0 16px 18px 16px !important;
+  border-bottom: 1px solid rgba(56, 189, 248, 0.3) !important;
+}
+
+.forensic-drawer {
+  background: rgba(30, 41, 59, 0.45);
+  border: 1px solid rgba(56, 189, 248, 0.3);
+  border-radius: 10px;
+  padding: 16px 18px;
+  margin-top: 4px;
+  animation: drawerSlide 0.2s ease-out;
+}
+
+@keyframes drawerSlide {
+  from { opacity: 0; transform: translateY(-6px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.drawer-header {
+  margin-bottom: 14px;
+}
+
+.drawer-eyebrow {
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #38bdf8;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+
+.drawer-header h5 {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: #f8fafc;
+  margin: 2px 0 0 0;
+}
+
+.drawer-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+  gap: 12px;
+  margin-bottom: 14px;
+}
+
+.drawer-card {
+  background: rgba(15, 23, 42, 0.65);
+  border: 1px solid rgba(51, 65, 85, 0.6);
+  border-radius: 8px;
+  padding: 12px 14px;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.drawer-card.rf-diag { border-left: 3px solid #38bdf8; }
+.drawer-card.if-diag { border-left: 3px solid #c084fc; }
+.drawer-card.op-diag { border-left: 3px solid #10b981; }
+
+.drawer-card-label {
+  font-size: 0.72rem;
+  font-weight: 700;
+  color: #cbd5e1;
+  border-bottom: 1px solid rgba(51, 65, 85, 0.4);
+  padding-bottom: 4px;
+}
+
+.diag-stat-row {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  font-size: 0.72rem;
+  gap: 8px;
+}
+
+.diag-stat-row .d-label {
+  color: #94a3b8;
+  white-space: nowrap;
+}
+
+.diag-stat-row .d-val {
+  color: #cbd5e1;
+  text-align: right;
+  line-height: 1.35;
+}
+
+.text-danger { color: #ef4444 !important; font-weight: 700; }
+.text-success { color: #10b981 !important; font-weight: 700; }
+.text-purple { color: #c084fc !important; font-weight: 700; }
+
+.drawer-bottom-dossier {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+.dossier-box {
+  background: rgba(15, 23, 42, 0.6);
+  border-radius: 8px;
+  padding: 10px 14px;
+}
+
+.dossier-box.rec-box {
+  border: 1px solid rgba(245, 158, 11, 0.3);
+}
+
+.dossier-box.evidence-box {
+  border: 1px solid rgba(56, 189, 248, 0.3);
+}
+
+.dossier-label {
+  display: block;
+  font-size: 0.68rem;
+  font-weight: 800;
+  color: #cbd5e1;
+  text-transform: uppercase;
+  margin-bottom: 4px;
+}
+
+.rec-box .dossier-label { color: #f59e0b; }
+.evidence-box .dossier-label { color: #38bdf8; }
+
+.dossier-box p {
+  font-size: 0.74rem;
+  color: #e2e8f0;
+  line-height: 1.45;
+  margin: 0;
+}
+
 @media (max-width: 900px) {
-  .ml-models-grid {
+  .drawer-bottom-dossier {
     grid-template-columns: 1fr;
   }
 }
