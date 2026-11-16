@@ -11,19 +11,19 @@ function ExecutiveSummary({
   const kpis = activeSummary?.kpis || {};
 
   const effectiveHealth =
-    kpis.workflow_health || workflowHealth || "Healthy";
+    workflowHealth || kpis.workflow_health || "Healthy";
   const effectiveTotal =
-    kpis.total_tickets !== undefined
-      ? kpis.total_tickets
-      : totalIssues ?? 0;
+    totalIssues !== undefined
+      ? totalIssues
+      : (kpis.total_tickets ?? 0);
   const effectiveDelayed =
     kpis.delayed_tickets_count !== undefined
       ? kpis.delayed_tickets_count
       : 0;
   const effectiveHighSev =
-    kpis.high_severity_issues_count !== undefined
-      ? kpis.high_severity_issues_count
-      : highSeverity ?? 0;
+    highSeverity !== undefined
+      ? highSeverity
+      : (kpis.high_severity_issues_count ?? 0);
   const effectiveSlaRisk = kpis.sla_risk_level || "Low";
   const effectiveBlockers = kpis.active_blockers_count || 0;
   const effectiveBottleneck =
@@ -56,7 +56,7 @@ function ExecutiveSummary({
     activeSummary.what_should_we_do.length > 0
       ? activeSummary.what_should_we_do
       : [
-          effectiveHighSev > 0 || effectiveHealth === "At Risk"
+          effectiveHighSev > 0 || String(effectiveHealth).toLowerCase().includes("risk")
             ? "Immediate management escalation and remediation recommended."
             : "Maintain current throughput monitoring; no urgent action required.",
         ];

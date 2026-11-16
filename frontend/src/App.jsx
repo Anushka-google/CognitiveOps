@@ -560,7 +560,7 @@ function Dashboard() {
                 } else {
                   setData((prev) => prev ? {
                     ...prev,
-                    workflow_health: "At Risk (Rejected)",
+                    workflow_health: "At Risk",
                     high_severity_issues: prev.high_severity_issues
                   } : prev);
                 }
@@ -602,7 +602,7 @@ function Dashboard() {
                 } else {
                   setData((prev) => prev ? {
                     ...prev,
-                    workflow_health: "At Risk (Unresolved)",
+                    workflow_health: "At Risk",
                     high_severity_issues: prev.high_severity_issues
                   } : prev);
                 }

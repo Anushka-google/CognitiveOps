@@ -297,6 +297,28 @@ function ApprovalPanel({
 
           </div>
 
+          <div style={{ marginTop: '16px', display: 'flex', justifyContent: 'flex-end' }}>
+            <button
+              onClick={() => {
+                setCompleted(false);
+                setDecisionMade('');
+                setMessage('');
+                setError('');
+              }}
+              style={{
+                background: 'transparent',
+                border: '1px solid rgba(255, 255, 255, 0.2)',
+                color: '#94a3b8',
+                padding: '6px 14px',
+                borderRadius: '6px',
+                fontSize: '12px',
+                cursor: 'pointer'
+              }}
+            >
+              ↺ Reset Decision Demo
+            </button>
+          </div>
+
         </div>
 
       </section>
