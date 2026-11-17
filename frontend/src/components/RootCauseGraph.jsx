@@ -14,7 +14,7 @@ function RootCauseGraph({
   }
 
   const width = 900;
-  const nodeWidth = 190;
+  const nodeWidth = 195;
   const nodeHeight = 72;
 
   const workflowNodes = nodes.filter((node) => node.type === "workflow");
@@ -24,25 +24,30 @@ function RootCauseGraph({
 
   workflowNodes.forEach((node, index) => {
     positions[node.id] = {
-      x: 90,
+      x: 80,
       y: 40 + index * 115,
     };
   });
 
   otherNodes.forEach((node, index) => {
     positions[node.id] = {
-      x: 580,
+      x: 590,
       y: 40 + index * 115,
     };
   });
 
   const getPosition = (id) =>
     positions[id] || {
-      x: 90,
+      x: 80,
       y: 40,
     };
 
   const canvasHeight = Math.max(440, Math.max(workflowNodes.length, otherNodes.length) * 115 + 60);
+
+  const hasCycle = edges.some((edge) => {
+    const rel = (edge.label || edge.relationship || "").toLowerCase();
+    return rel.includes("cycl") || rel.includes("deadlock") || rel.includes("wait on auth");
+  });
 
   return (
     <div className="root-cause-graph">
@@ -56,11 +61,11 @@ function RootCauseGraph({
           Microservice
         </span>
         <span>
-          <i className="legend-blocker" style={{ background: "#ef4444" }}></i>
+          <i className="legend-blocker"></i>
           Circular Deadlock Cycle
         </span>
         <span>
-          <i className="legend-service" style={{ background: "#38bdf8" }}></i>
+          <i className="legend-workflow" style={{ background: "#38bdf8", boxShadow: "0 0 6px rgba(56, 189, 248, 0.5)" }}></i>
           Direct Dependency
         </span>
       </div>
@@ -81,10 +86,10 @@ function RootCauseGraph({
               refY="6"
               orient="auto"
             >
-              <path d="M0,2 L10,6 L0,10 z" fill="#38bdf8" />
+              <path d="M0,2 L10,6 L0,10 z" fill="#00f2fe" />
             </marker>
 
-            {/* Critical Blocker Arrow (Vibrant Red) */}
+            {/* Critical Blocker Arrow (Vibrant Crimson) */}
             <marker
               id="arrow-blocker"
               markerWidth="14"
@@ -93,10 +98,10 @@ function RootCauseGraph({
               refY="7"
               orient="auto"
             >
-              <path d="M0,2 L12,7 L0,12 z" fill="#ef4444" />
+              <path d="M0,2 L12,7 L0,12 z" fill="#ff3366" />
             </marker>
 
-            {/* Circular Cycle Return Arrow (Amber / Orange) */}
+            {/* Circular Cycle Return Arrow (Vibrant Orange) */}
             <marker
               id="arrow-cycle"
               markerWidth="14"
@@ -105,7 +110,7 @@ function RootCauseGraph({
               refY="7"
               orient="auto"
             >
-              <path d="M0,2 L12,7 L0,12 z" fill="#f97316" />
+              <path d="M0,2 L12,7 L0,12 z" fill="#ff5500" />
             </marker>
           </defs>
 
@@ -129,7 +134,6 @@ function RootCauseGraph({
 
             if (isSameColumn) {
               // INTRA-COLUMN (e.g. KAN-101 <-> KAN-104)
-              // To prevent ugly crossing straight lines, curve them distinctly:
               const isDownward = target.y > source.y;
               if (isDownward) {
                 // Curve forward on the right side: Node 1 Right -> Node 2 Right
@@ -168,6 +172,10 @@ function RootCauseGraph({
               midY = (startY + endY) / 2;
             }
 
+            const pillBg = isCycle ? "#220c03" : isBlocker ? "#1f070e" : "#08111e";
+            const pillStroke = isCycle ? "#ff5500" : isBlocker ? "#ff3366" : "#00f2fe";
+            const pillTextColor = isCycle ? "#ff8844" : isBlocker ? "#ff3366" : "#00f2fe";
+
             return (
               <g key={`edge-${index}`} className="graph-edge-group">
                 {/* Visual Edge Path */}
@@ -183,14 +191,18 @@ function RootCauseGraph({
                     x="-55"
                     y="-11"
                     width="110"
-                    height="20"
-                    rx="10"
+                    height="22"
+                    rx="11"
                     className={`edge-pill-bg ${isCycle ? "pill-cycle" : isBlocker ? "pill-blocker" : "pill-standard"}`}
+                    fill={pillBg}
+                    stroke={pillStroke}
+                    strokeWidth="1.5"
                   />
                   <text
                     x="0"
-                    y="3"
-                    className="edge-pill-text"
+                    y="1"
+                    className={`edge-pill-text ${isCycle ? "edge-text-cycle" : isBlocker ? "edge-text-blocker" : "edge-text-standard"}`}
+                    fill={pillTextColor}
                   >
                     {isCycle ? "⇄ DEADLOCK" : relationship.toUpperCase()}
                   </text>
@@ -203,39 +215,81 @@ function RootCauseGraph({
           {nodes.map((node) => {
             const position = getPosition(node.id);
             const isWorkflow = node.type === "workflow";
+            const isHighRisk = (node.risk_score || 0) >= 0.7;
+
+            const bgFill = isWorkflow ? "#0c1524" : "#141722";
+            const strokeColor = isHighRisk && isWorkflow ? "#ff3366" : isWorkflow ? "#00f2fe" : "#ffb703";
+            const typeColor = isWorkflow ? "#00f2fe" : "#ffb703";
+            const typeLabel = isWorkflow ? "JIRA TICKET" : "MICROSERVICE";
 
             return (
               <g
                 key={node.id}
                 transform={`translate(${position.x}, ${position.y})`}
-                className={`graph-node graph-node-${node.type}`}
+                className={`graph-node graph-node-${node.type} ${isHighRisk ? "node-high-risk" : ""}`}
               >
+                {/* Node Card Background */}
                 <rect
                   width={nodeWidth}
                   height={nodeHeight}
-                  rx="12"
-                  className={`node-card ${isWorkflow ? "node-workflow" : "node-service"}`}
+                  rx="10"
+                  className={`node-card ${isWorkflow ? "node-workflow" : "node-service"} ${isHighRisk ? "card-high-risk" : ""}`}
+                  fill={bgFill}
+                  stroke={strokeColor}
+                  strokeWidth="1.5"
+                />
+
+                {/* Top decorative hairline accent */}
+                <line
+                  x1="12"
+                  y1="1"
+                  x2={nodeWidth - 12}
+                  y2="1"
+                  stroke={strokeColor}
+                  strokeWidth="2"
+                  opacity="0.8"
                 />
 
                 {/* Node Header Pill */}
-                <text x="14" y="24" className="graph-node-type">
-                  {isWorkflow ? "JIRA ISSUE" : "SERVICE / INFRA"}
+                <text
+                  x="14"
+                  y="22"
+                  className={`graph-node-type ${isWorkflow ? "type-workflow" : "type-service"}`}
+                  fill={typeColor}
+                >
+                  {typeLabel}
                 </text>
 
-                {node.risk_score && (
-                  <text x={nodeWidth - 14} y="24" textAnchor="end" className="graph-node-risk">
+                {node.risk_score !== undefined && (
+                  <text
+                    x={nodeWidth - 14}
+                    y="22"
+                    textAnchor="end"
+                    className={`graph-node-risk ${isHighRisk ? "risk-high" : "risk-med"}`}
+                    fill={isHighRisk ? "#ff3366" : "#ffb703"}
+                  >
                     Risk: {(node.risk_score * 100).toFixed(0)}%
                   </text>
                 )}
 
                 {/* Node Title */}
-                <text x="14" y="46" className="graph-node-label">
-                  {node.label.length > 20 ? `${node.label.slice(0, 20)}...` : node.label}
+                <text
+                  x="14"
+                  y="44"
+                  className="graph-node-label"
+                  fill="#f8fafc"
+                >
+                  {node.label.length > 21 ? `${node.label.slice(0, 21)}...` : node.label}
                 </text>
 
                 {/* Subtitle / Telemetry */}
                 {node.subtitle && (
-                  <text x="14" y="62" className="graph-node-subtitle">
+                  <text
+                    x="14"
+                    y="60"
+                    className="graph-node-subtitle"
+                    fill="#94a3b8"
+                  >
                     {node.subtitle.length > 25 ? `${node.subtitle.slice(0, 25)}...` : node.subtitle}
                   </text>
                 )}
@@ -250,9 +304,11 @@ function RootCauseGraph({
         <span>nodes</span>
         <strong>{edges.length}</strong>
         <span>relationships</span>
-        <span className="cycle-indicator-pill">
-          ⚡ 1 Active Circular Deadlock Detected
-        </span>
+        {hasCycle && (
+          <span className="cycle-indicator-pill">
+            ⚡ Circular Deadlock Cycle Detected
+          </span>
+        )}
       </div>
     </div>
   );
