@@ -1,8 +1,8 @@
 .integrations-page {
-  padding: 32px;
+  padding: 24px 36px 64px 36px;
   color: #c9d1d9;
-  max-width: 1280px;
-  margin: 0 auto;
+  width: 100%;
+  box-sizing: border-box;
 }
 
 .integrations-header {

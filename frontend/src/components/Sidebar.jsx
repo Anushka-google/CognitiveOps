@@ -1,26 +1,31 @@
-import { Link, useLocation } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import { useAuth } from "../context/AuthContext";
 import "./Sidebar.css";
 
-
 function Sidebar({ collapsed, setCollapsed }) {
   const location = useLocation();
+  const navigate = useNavigate();
   const { logout } = useAuth();
 
-  const scrollToSection = (id) => {
-    const element = document.getElementById(id);
-
-    if (element) {
-      element.scrollIntoView({
-        behavior: "smooth",
-        block: "start",
-      });
-    }
-  };
-
-  const isDashboard = location.pathname === "/dashboard";
+  const isDashboard = location.pathname === "/" || location.pathname === "/dashboard";
   const isWorkflow = location.pathname === "/workflow";
   const isChat = location.pathname === "/chat";
+  const isIntegrations = location.pathname === "/integrations";
+
+  const handleNavigateSection = (id) => {
+    if (isDashboard) {
+      const element = document.getElementById(id);
+      if (element) {
+        element.scrollIntoView({
+          behavior: "smooth",
+          block: "start",
+        });
+      }
+    } else {
+      // Navigate to Dashboard with target hash so App.jsx auto-scrolls to the section
+      navigate(`/#${id}`);
+    }
+  };
 
   return (
     <aside
@@ -42,14 +47,16 @@ function Sidebar({ collapsed, setCollapsed }) {
           )}
         </Link>
 
-        <button
-          type="button"
-          className="collapse-button"
-          onClick={() => setCollapsed(!collapsed)}
-          aria-label="Toggle sidebar"
-        >
-          {collapsed ? "›" : "‹"}
-        </button>
+        {setCollapsed && (
+          <button
+            type="button"
+            className="collapse-button"
+            onClick={() => setCollapsed(!collapsed)}
+            aria-label="Toggle sidebar"
+          >
+            {collapsed ? "›" : "‹"}
+          </button>
+        )}
       </div>
 
       {/* ================= NAVIGATION ================= */}
@@ -69,7 +76,7 @@ function Sidebar({ collapsed, setCollapsed }) {
           className={`sidebar-item ${
             isDashboard ? "active" : ""
           }`}
-          onClick={() => scrollToSection("overview")}
+          onClick={() => handleNavigateSection("overview")}
           title={collapsed ? "Overview" : ""}
         >
           <span className="sidebar-icon">▦</span>
@@ -92,7 +99,7 @@ function Sidebar({ collapsed, setCollapsed }) {
         <button
           type="button"
           className="sidebar-item"
-          onClick={() => scrollToSection("analytics")}
+          onClick={() => handleNavigateSection("analytics")}
           title={collapsed ? "Analytics" : ""}
         >
           <span className="sidebar-icon">◈</span>
@@ -107,7 +114,7 @@ function Sidebar({ collapsed, setCollapsed }) {
         <button
           type="button"
           className="sidebar-item"
-          onClick={() => scrollToSection("risk-analysis")}
+          onClick={() => handleNavigateSection("risk-analysis")}
           title={collapsed ? "Risk Analysis" : ""}
         >
           <span className="sidebar-icon">◉</span>
@@ -122,7 +129,7 @@ function Sidebar({ collapsed, setCollapsed }) {
         <button
           type="button"
           className="sidebar-item"
-          onClick={() => scrollToSection("ai-insights")}
+          onClick={() => handleNavigateSection("ai-insights")}
           title={collapsed ? "AI Insights" : ""}
         >
           <span className="sidebar-icon">✦</span>
@@ -137,7 +144,7 @@ function Sidebar({ collapsed, setCollapsed }) {
         <button
           type="button"
           className="sidebar-item"
-          onClick={() => scrollToSection("pipeline")}
+          onClick={() => handleNavigateSection("pipeline")}
           title={collapsed ? "5-Stage Pipeline" : ""}
         >
           <span className="sidebar-icon">⚡</span>
@@ -152,7 +159,7 @@ function Sidebar({ collapsed, setCollapsed }) {
         <button
           type="button"
           className="sidebar-item"
-          onClick={() => scrollToSection("predictive-ml")}
+          onClick={() => handleNavigateSection("predictive-ml")}
           title={collapsed ? "ML Intelligence" : ""}
         >
           <span className="sidebar-icon">🌲</span>
@@ -189,35 +196,35 @@ function Sidebar({ collapsed, setCollapsed }) {
         </Link>
 
         <Link
-            to="/chat"
-            className={`sidebar-item sidebar-link ${
+          to="/chat"
+          className={`sidebar-item sidebar-link ${
             isChat ? "active" : ""
-            }`}
-            title={collapsed ? "AI Chat" : ""}
+          }`}
+          title={collapsed ? "AI Chat" : ""}
         >
-        <span className="sidebar-icon">🤖</span>
+          <span className="sidebar-icon">🤖</span>
 
-        {!collapsed && (
-          <span className="sidebar-item-text">
-           AI Chat
+          {!collapsed && (
+            <span className="sidebar-item-text">
+              AI Chat
             </span>
-         )}
+          )}
         </Link>
-        
-        <Link
-            to="/integrations"
-            className={`sidebar-item sidebar-link ${
-            location.pathname === "/integrations" ? "active" : ""
-            }`}
-            title={collapsed ? "Integrations" : ""}
-        >
-        <span className="sidebar-icon">🔌</span>
 
-        {!collapsed && (
-          <span className="sidebar-item-text">
-           Integrations
+        <Link
+          to="/integrations"
+          className={`sidebar-item sidebar-link ${
+            isIntegrations ? "active" : ""
+          }`}
+          title={collapsed ? "Integrations" : ""}
+        >
+          <span className="sidebar-icon">🔌</span>
+
+          {!collapsed && (
+            <span className="sidebar-item-text">
+              Integrations
             </span>
-         )}
+          )}
         </Link>
 
       </nav>

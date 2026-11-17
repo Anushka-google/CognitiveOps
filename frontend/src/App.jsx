@@ -127,6 +127,20 @@ function Dashboard() {
   // LOAD DASHBOARD DATA WITH RESILIENCE
   // =========================================
 
+  // Auto-scroll to section on cross-page navigation with hash
+  useEffect(() => {
+    if (location.hash) {
+      const targetId = location.hash.replace("#", "");
+      const timer = setTimeout(() => {
+        const el = document.getElementById(targetId);
+        if (el) {
+          el.scrollIntoView({ behavior: "smooth", block: "start" });
+        }
+      }, 150);
+      return () => clearTimeout(timer);
+    }
+  }, [location.pathname, location.hash]);
+
   useEffect(() => {
     let isMounted = true;
     let pollInterval = null;
@@ -261,9 +275,20 @@ function Dashboard() {
 
   if (location.pathname === "/integrations") {
     return (
-      <div className="dashboard-container">
-        <Sidebar />
-        <Integrations />
+      <div
+        className={
+          sidebarCollapsed
+            ? "dashboard-page sidebar-is-collapsed"
+            : "dashboard-page"
+        }
+      >
+        <Sidebar
+          collapsed={sidebarCollapsed}
+          setCollapsed={setSidebarCollapsed}
+        />
+        <main className="dashboard-main" style={{ padding: 0 }}>
+          <Integrations />
+        </main>
       </div>
     );
   }
@@ -1486,35 +1511,35 @@ function Dashboard() {
 
         </section>
 
-      </main>
 
+        {/* =========================================
+            FOOTER
+        ========================================= */}
 
-      {/* =========================================
-          FOOTER
-      ========================================= */}
+        <footer
+          className="dashboard-footer"
+        >
 
-      <footer
-        className="dashboard-footer"
-      >
+          <div>
 
-        <div>
+            <strong>
+              CognitiveOps
+            </strong>
 
-          <strong>
-            CognitiveOps
-          </strong>
+            <span>
+              AI Process Intelligence Engine
+            </span>
+
+          </div>
+
 
           <span>
-            AI Process Intelligence Engine
+            Operational Intelligence Dashboard
           </span>
 
-        </div>
+        </footer>
 
-
-        <span>
-          Operational Intelligence Dashboard
-        </span>
-
-      </footer>
+      </main>
 
     </div>
 

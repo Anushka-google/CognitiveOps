@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import { askChat } from "../services/chatApi";
 import "./Chat.css";
 
@@ -7,6 +7,13 @@ const THINKING_PHRASES = [
   "🕸️ Checking DAG dependency graph for circular blockers...",
   "📊 Correlating Jira ticket SLA breach vectors...",
   "⚡ Synthesizing grounded operational intelligence...",
+];
+
+const SUGGESTED_QUERIES = [
+  { label: "Why is the workflow delayed?", icon: "⚡" },
+  { label: "Find the biggest bottleneck.", icon: "🔍" },
+  { label: "What action should we take?", icon: "🛡️" },
+  { label: "Check circular deadlock cycles in KAN-101.", icon: "🕸️" },
 ];
 
 function formatMessageContent(content) {
@@ -35,6 +42,16 @@ function Chat() {
   const [messages, setMessages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [thinkingIndex, setThinkingIndex] = useState(0);
+  const messagesEndRef = useRef(null);
+
+  // Auto-scroll to bottom of chat
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, loading]);
 
   // Cycle thinking phrases while loading
   useEffect(() => {
@@ -49,7 +66,7 @@ function Chat() {
   }, [loading]);
 
   const handleSubmit = async (event) => {
-    event.preventDefault();
+    if (event) event.preventDefault();
 
     const trimmedQuestion = question.trim();
 
@@ -103,61 +120,61 @@ function Chat() {
     }
   };
 
+  const handleQuickPrompt = (promptText) => {
+    setQuestion(promptText);
+  };
+
   return (
     <main className="chat-page">
+      {/* ================= HEADER ================= */}
       <div className="chat-header">
-        <div>
-          <h1>CognitiveOps Chat</h1>
+        <div className="chat-header-main">
+          <div className="chat-eyebrow">
+            <span className="brand-dot">⚡</span> NEURAL OPS INTELLIGENCE • HYBRID RAG AGENT
+          </div>
+          <h1>CognitiveOps Intelligence Chat</h1>
           <p>
-            Ask questions about workflows, risks,
-            bottlenecks, Jira and operational evidence.
+            Autonomous root cause correlation across Jira blockers, SLA vectors, and DAG dependencies.
           </p>
+        </div>
+
+        <div className="chat-hud-telemetry">
+          <div className="chat-telemetry-badge active">
+            <span className="status-dot"></span>
+            <span>RAG ENGINE // LIVE</span>
+          </div>
+          <div className="chat-telemetry-badge">
+            <span className="mono-label">MODEL:</span>
+            <span>GEMINI EMBEDDING</span>
+          </div>
+          <div className="chat-telemetry-badge">
+            <span className="mono-label">ZERO-HALLUCINATION:</span>
+            <span className="emerald">ACTIVE</span>
+          </div>
         </div>
       </div>
 
+      {/* ================= CHAT CONSOLE ================= */}
       <section className="chat-container">
         <div className="chat-messages">
           {messages.length === 0 && (
             <div className="chat-empty">
-              <h2>Ask CognitiveOps</h2>
-
+              <div className="chat-empty-icon">🤖</div>
+              <h2>Operational Intelligence Console</h2>
               <p>
-                Try asking:
+                Query root causes, predict SLA impacts, or ask the AI to recommend automated mitigation workflows.
               </p>
 
               <div className="chat-examples">
-                <button
-                  type="button"
-                  onClick={() =>
-                    setQuestion(
-                      "Why is the workflow delayed?"
-                    )
-                  }
-                >
-                  Why is the workflow delayed?
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setQuestion(
-                      "Find the biggest bottleneck."
-                    )
-                  }
-                >
-                  Find the biggest bottleneck.
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() =>
-                    setQuestion(
-                      "What action should we take?"
-                    )
-                  }
-                >
-                  What action should we take?
-                </button>
+                {SUGGESTED_QUERIES.map((item, idx) => (
+                  <button
+                    key={idx}
+                    type="button"
+                    onClick={() => handleQuickPrompt(item.label)}
+                  >
+                    <span>{item.icon}</span> {item.label}
+                  </button>
+                ))}
               </div>
             </div>
           )}
@@ -168,19 +185,14 @@ function Chat() {
               className={`chat-message ${message.role}`}
             >
               <div className="chat-message-label">
+                <span className="sender-avatar">
+                  {message.role === "user" ? "OP" : "⚡"}
+                </span>
                 {message.role === "user"
-                  ? "You"
-                  : "CognitiveOps"}
+                  ? "Incident Commander"
+                  : "CognitiveOps Neural Agent"}
                 {message.offlineFallback && (
-                  <span style={{
-                    marginLeft: "8px",
-                    fontSize: "0.72rem",
-                    padding: "2px 6px",
-                    borderRadius: "4px",
-                    background: "rgba(56, 189, 248, 0.15)",
-                    color: "#38bdf8",
-                    border: "1px solid rgba(56, 189, 248, 0.3)"
-                  }}>
+                  <span className="grounded-telemetry-pill">
                     ⚡ Grounded Telemetry
                   </span>
                 )}
@@ -198,27 +210,26 @@ function Chat() {
 
               {message.role === "assistant" &&
                 !message.error && (
-                  <>
+                  <div className="chat-metadata-deck">
                     {message.insufficientEvidence && (
                       <div className="chat-warning">
-                        There is not enough evidence to
-                        provide a reliable answer.
+                        ⚠️ Insufficient evidence in cluster to provide a 100% deterministic answer.
                       </div>
                     )}
 
                     {message.confidence !== undefined &&
                       message.confidence !== null && (
                         <div className="chat-confidence">
-                          Confidence:{" "}
-                          {Number(
-                            message.confidence
-                          ).toFixed(2)}
+                          <span className="confidence-label">AI CONFIDENCE:</span>
+                          <span className="confidence-val">
+                            {(Number(message.confidence) * 100).toFixed(0)}%
+                          </span>
                         </div>
                       )}
 
                     {message.evidence.length > 0 && (
                       <div className="chat-section">
-                        <h3>Evidence</h3>
+                        <h4>Empirical Evidence</h4>
 
                         {message.evidence.map(
                           (item, evidenceIndex) => (
@@ -237,7 +248,7 @@ function Chat() {
 
                     {message.citations.length > 0 && (
                       <div className="chat-section">
-                        <h3>Citations</h3>
+                        <h4>Audit Citations</h4>
 
                         {message.citations.map(
                           (citation, citationIndex) => (
@@ -247,41 +258,32 @@ function Chat() {
                             >
                               {typeof citation === "string"
                                 ? citation
-                                : JSON.stringify(
-                                    citation
-                                  )}
+                                : JSON.stringify(citation)}
                             </div>
                           )
                         )}
                       </div>
                     )}
 
-                    {message.recommendations.length >
-                      0 && (
+                    {message.recommendations.length > 0 && (
                       <div className="chat-section">
-                        <h3>Recommendations</h3>
+                        <h4>Remediation Recommendations</h4>
 
                         {message.recommendations.map(
-                          (
-                            recommendation,
-                            recommendationIndex
-                          ) => (
+                          (recommendation, recommendationIndex) => (
                             <div
                               className="chat-recommendation"
                               key={recommendationIndex}
                             >
-                              {typeof recommendation ===
-                              "string"
+                              {typeof recommendation === "string"
                                 ? recommendation
-                                : JSON.stringify(
-                                    recommendation
-                                  )}
+                                : JSON.stringify(recommendation)}
                             </div>
                           )
                         )}
                       </div>
                     )}
-                  </>
+                  </div>
                 )}
             </div>
           ))}
@@ -289,36 +291,56 @@ function Chat() {
           {loading && (
             <div className="chat-message assistant">
               <div className="chat-message-label">
-                CognitiveOps
+                <span className="sender-avatar">⚡</span> CognitiveOps Neural Agent
               </div>
 
-              <div className="chat-message-content" style={{ display: "flex", alignItems: "center", gap: "8px" }}>
-                <span className="pulse-dot" style={{ width: "8px", height: "8px" }}></span>
+              <div className="chat-message-content thinking-bubble">
+                <span className="pulse-dot"></span>
                 <span>{THINKING_PHRASES[thinkingIndex]}</span>
               </div>
             </div>
           )}
+
+          <div ref={messagesEndRef} />
         </div>
 
+        {/* Quick Suggestion Pills Bar above Input */}
+        {messages.length > 0 && (
+          <div className="chat-quick-bar">
+            {SUGGESTED_QUERIES.slice(0, 3).map((item, idx) => (
+              <button
+                key={idx}
+                type="button"
+                className="quick-chip"
+                onClick={() => handleQuickPrompt(item.label)}
+              >
+                <span>{item.icon}</span> {item.label}
+              </button>
+            ))}
+          </div>
+        )}
+
+        {/* Input Form Deck */}
         <form
           className="chat-input-area"
           onSubmit={handleSubmit}
         >
-          <input
-            type="text"
-            value={question}
-            onChange={(event) =>
-              setQuestion(event.target.value)
-            }
-            placeholder="Ask a workflow question..."
-            disabled={loading}
-          />
+          <div className="chat-input-wrapper">
+            <span className="input-prompt-icon">›_</span>
+            <input
+              type="text"
+              value={question}
+              onChange={(event) => setQuestion(event.target.value)}
+              placeholder="Query workflow intelligence, root cause DAGs, or SLA risk vectors..."
+              disabled={loading}
+            />
+          </div>
 
           <button
             type="submit"
             disabled={loading || !question.trim()}
           >
-            {loading ? "..." : "Send"}
+            {loading ? "PROCESSING..." : "DISPATCH"}
           </button>
         </form>
       </section>
